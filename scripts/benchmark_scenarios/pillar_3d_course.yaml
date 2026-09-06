@@ -1,0 +1,68 @@
+name: pillar_3d_course
+
+# Multi-obstacle 3D course sized after pillar.pcd's arena (measured extent
+# ~14.5 m x 27.4 m), with the long axis rotated onto +x so the standard
+# forward trace traverses it: obstacles span x in [-3, 24] (27 m) within
+# y in [-7, 7] (14 m). Five obstacle types in sequence, ~4-5 m apart so the
+# fine window (8 m) sees one at a time while the coarse window (12 m)
+# already sees the next:
+#   x=4    low wide wall            -> climb over
+#   x=8.5  overhang beam            -> dive under
+#   x=14.5 full-height wall, window -> thread the aperture (6 m after the
+#          beam: the dive exits at z~0.55 and the climb to the aperture
+#          needs ~1.2 m of altitude -- with only 5 m the drone reached the
+#          wall face still low, hovered in the lateral-drain flow along the
+#          wall and slid around instead of threading; observed live)
+#   x=18.5 full-height center pillar flanked by low pillars
+#                                   -> lateral dodge + hop combined
+#   x=21.5 floating block           -> pass underneath
+# Needs test_gvf_3d.launch (3.5 m map / 3.4 ceiling). All z spans are
+# integer multiples of point_spacing (generator lattice rule).
+boxes:
+  # 1) low wall, ends sealed against the coarse window edge (climb, not around)
+  - {center_x: 4.0, center_y: 0.0, thickness_x: 0.2, half_length_y: 4.8,
+     z_min: 0.0, z_max: 1.2, point_spacing: 0.1}
+  # 2) overhang beam: top gap to the 3.4 ceiling is 0.1 < 2*d_s (closed)
+  - {center_x: 8.5, center_y: 0.0, thickness_x: 0.2, half_length_y: 4.8,
+     z_min: 1.3, z_max: 3.3, point_spacing: 0.1}
+  # 3) near-full-height wall with a 1.6 x 1.4 m window on the intent ray.
+  #    half_length_y 6.0 (not 4.8): with lateral drift in the beam wake a
+  #    shorter wall's end gap enters the coarse window and the field legally
+  #    routes AROUND instead of threading (observed). The 1.6 x 1.4 m cut is
+  #    sized so its capture region dominates the wall's lateral drain flow
+  #    even on a climbing (below-sill) approach.
+  - {center_x: 14.5, center_y: 0.0, thickness_x: 0.2, half_length_y: 6.0,
+     z_min: 0.05, z_max: 3.35, point_spacing: 0.1,
+     windows: [{y_min: -0.8, y_max: 0.8, z_min: 1.1, z_max: 2.5}]}
+  # 4) pillar cluster: full-height center, low flanks (top 1.0 -> hop apex
+  #    ~1.5 stays inside the solver's free band); open beyond |y|=2.7 costs
+  #    a 3-4 m detour vs a 0.5 m hop
+  - {center_x: 18.5, center_y: 0.0, thickness_x: 0.6, half_length_y: 0.9,
+     z_min: 0.05, z_max: 3.35, point_spacing: 0.1}
+  - {center_x: 18.5, center_y: -1.8, thickness_x: 0.6, half_length_y: 0.9,
+     z_min: 0.0, z_max: 1.0, point_spacing: 0.1}
+  - {center_x: 18.5, center_y: 1.8, thickness_x: 0.6, half_length_y: 0.9,
+     z_min: 0.0, z_max: 1.0, point_spacing: 0.1}
+  # 5) floating block above the cruise height (z_min > 0 overhang feature)
+  - {center_x: 21.5, center_y: 0.0, thickness_x: 0.6, half_length_y: 1.2,
+     z_min: 1.7, z_max: 2.5, point_spacing: 0.1}
+
+# No ground plane: the floor is NOT in the ESDF here (in-bounds ceiling, no
+# accidental ground layer), and the solver's forced floor band
+# (fluid_3d_floor_band: z <= z_min+0.3 solid) is what keeps the field from
+# commanding into the floor. The validator's min_z gate still guards the
+# executed trajectory.
+
+validation:
+  mode: course
+  d_s: 0.30
+  cruise_z: 1.0
+  course_end_x: 23.0            # past the floating block + margin (map edge at +25)
+  return_window_s: 2.0
+  return_z_tolerance: 0.25
+  max_z: 3.0
+  min_z: 0.30                   # beam dive + post-obstacle wake dips expected
+  max_command_vz: 1.3
+  max_command_speed: 2.05
+  post_release_max_command_speed: 0.05
+  max_stall_s: 2.5              # five obstacles: allow a slightly longer worst pause

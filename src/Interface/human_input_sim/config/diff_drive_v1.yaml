@@ -1,0 +1,61 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Diff-drive (Scout-class) baseline trace.
+#
+# v1 sent the robot on an ever-advancing S-curve chicane (gentle heading steps, never
+# reversing net progress). That works kinematically, but the benchmark's obstacle field
+# (scripts/run_diff_drive_benchmark.sh's default map, map_generator/resource/pillar.pcd) only
+# spans roughly x in [-7.2, 7.3], y in [-13.7, 13.7] -- a bounded arena, not open ground. An
+# ever-advancing trace eventually drives the robot straight out of that arena. Past the arena
+# edge there is a virtual boundary wall (SDFMap's manual-boundary layer, see
+# gvf_manager.cpp's corridor build querying getInflateOccupancy/getDistance against it), so the
+# robot correctly reports "corridor build/solve failed" and brakes -- that is the intended
+# behavior of a wall, not a planner or mapping bug. (An earlier version of this fix mistakenly
+# went looking for a stale-buffer bug in sdf_map.cpp instead; reverted -- the real problem was
+# always this trace routing the robot outside the arena, not the map.)
+#
+# This version instead is a closed there-and-back loop that stays inside the arena with
+# margin: simulating the raw intent (no tracking lag) gives a bounding box of roughly
+# x in [-5.6, 0.7], y in [-4.8, 9.8] -- comfortably inside the ~+/-7m x / +/-13.7m y walls,
+# leaving room for the vehicle footprint (0.93x0.70m) plus clearance margins.
+#
+#   phase 1 (0-8s):   gentle +/-10 deg wiggle around world +Y, ~8m net advance
+#   phase 2 (8-17s):  in-place-ish U-turn, sweeping +180 deg via 20 deg/1.0s steps (20 deg/s,
+#                     under the platform's max_w=0.5235 rad/s =~30 deg/s cap) to reverse heading
+#   phase 3 (17-25s): gentle +/-10 deg wiggle around world -Y, back toward the start
+#   phase 4 (25-34s): a second +180 deg U-turn, same style, to end facing the original heading
+#   phase 5 (34-36s): short straight leg to settle, then stop (post_hold_sec holds position)
+#
+# Intent magnitude is always the full stick (norm 1), so joy_to_intent scales every leg to the
+# platform's actual max_speed (v_max, wired in via test_gvf_diff_drive.launch's
+# xbox_input.launch/max_speed arg) regardless of what v_max is currently tuned to.
+events:
+  - {at: 0.0,  forward: 0.1736,  lateral: 0.9848}
+  - {at: 4.0,  forward: -0.1736, lateral: 0.9848}
+  - {at: 8.0,  forward: -0.5,    lateral: 0.8660}
+  - {at: 9.0,  forward: -0.7660, lateral: 0.6428}
+  - {at: 10.0, forward: -0.9397, lateral: 0.3420}
+  - {at: 11.0, forward: -1.0,    lateral: 0.0}
+  - {at: 12.0, forward: -0.9397, lateral: -0.3420}
+  - {at: 13.0, forward: -0.7660, lateral: -0.6428}
+  - {at: 14.0, forward: -0.5,    lateral: -0.8660}
+  - {at: 15.0, forward: -0.1736, lateral: -0.9848}
+  - {at: 16.0, forward: 0.1736,  lateral: -0.9848}
+  - {at: 17.0, forward: 0.1736,  lateral: -0.9848}
+  - {at: 21.0, forward: -0.1736, lateral: -0.9848}
+  - {at: 25.0, forward: 0.1736,  lateral: -0.9848}
+  - {at: 26.0, forward: 0.5,     lateral: -0.8660}
+  - {at: 27.0, forward: 0.7660,  lateral: -0.6428}
+  - {at: 28.0, forward: 0.9397,  lateral: -0.3420}
+  - {at: 29.0, forward: 1.0,     lateral: 0.0}
+  - {at: 30.0, forward: 0.9397,  lateral: 0.3420}
+  - {at: 31.0, forward: 0.7660,  lateral: 0.6428}
+  - {at: 32.0, forward: 0.5,     lateral: 0.8660}
+  - {at: 33.0, forward: 0.1736,  lateral: 0.9848}
+  - {at: 34.0, forward: 0.0,     lateral: 1.0}
+  - {at: 36.0, forward: 0.0,     lateral: 0.0}

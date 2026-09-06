@@ -1,0 +1,205 @@
+<launch>
+    <!-- 集中定义参数 -->
+    <arg name="drone_id" default="1" />
+    <arg name="init_x" default="0.0" />
+    <arg name="init_y" default="0.0" />
+    <arg name="init_z" default="1.0" />
+    <!-- Topic wiring, overridable so the same launch can be included inside a
+         namespace group for the triple-planner ablation (test_gvf_2d_triple). -->
+    <arg name="cloud_topic" default="/sim/local_map" />
+    <arg name="odom_topic" default="/sim/odom" />
+    <arg name="cmd_topic" default="/position_cmd" />
+    <arg name="local_map_topic" default="/sim/local_map" />
+    <!-- Planning  parameters-->
+    <arg name="map_size_x_" value="50.0"/>
+    <arg name="map_size_y_" value="50.0"/>
+    <arg name="map_size_z_" value=" 2.5"/>
+
+    <!-- The ESDF filter is axis-aligned, so it must contain every orientation of the
+         12m x 10m forward-biased sensing rectangle (farthest corner: 12.72m). -->
+    <arg name="local_update_range_x" default="13.0"/>
+    <arg name="local_update_range_y" default="13.0"/>
+    <arg name="local_update_range_z" default="2.5"/>
+    <arg name="fluid_window_forward_size" default="12.0"/>
+    <arg name="fluid_window_lateral_size" default="10.0"/>
+    <arg name="fluid_window_rear_margin" default="0.30"/>
+    <!-- Depth-camera occlusion culling in map_generator/local_sensing (shared
+         with the 3D launch); set false for the full-map A/B. -->
+    <arg name="occlusion_culling" default="true"/>
+    <!-- Cost scales steeply here: CG iterations grow as O(1/h) on top of the
+         1/h^2 growth in unknowns, so halving h is roughly 8x the solve work.
+         Note the topology a solve can see is bounded by d_s (0.30) inflation, not
+         by h: on door_width_0p8/1p2 both h=0.15 and h=0.30 blocked the 0.8 m door
+         at exactly max_x=7.69 and passed the 1.2 m door. -->
+    <arg name="fluid_grid_resolution" default="0.10"/>
+    <!-- CG stopping rule for the harmonic solve. Iterations scale as O(1/h), so
+         these trade directly against fluid_grid_resolution; see gvf.h. -->
+    <arg name="fluid_bypass_offset" default="3.0"/>
+    <arg name="fluid_cg_tolerance" default="1e-5"/>
+    <!-- Temporary switch: false shows the pure harmonic field without the
+         convergence-to-ray regression term (paper figure runs). -->
+    <arg name="fluid_use_regression" default="true"/>
+    <arg name="fluid_cg_max_iterations" default="200"/>
+    <!-- Nested levels: coarse spans fluid_window_* at the inflation scale, fine
+         re-solves the near field at fluid_grid_resolution_ inside it. -->
+    <arg name="fluid_coarse_grid_resolution" default="0.30"/>
+    <!-- Keep the 2-D nested XY geometry identical to test_gvf_3d.launch:
+         12 x 10 m coarse reach and a 6 x 6 m robot-centred fine solve. -->
+    <arg name="fluid_fine_forward_size" default="6.0"/>
+    <arg name="fluid_fine_lateral_size" default="6.0"/>
+    <arg name="fluid_use_coarse" default="true"/>
+    <arg name="fluid_use_fine" default="true"/>
+
+    <arg name="v_max" value="2.0"/>
+    <arg name="a_max" value="2.5"/>
+
+    <!-- Xbox joystick input: left stick controls world-frame X/Y velocity. -->
+    <arg name="joy_device" default="/dev/input/js0" />
+    <arg name="joy_name" default="" />
+    <arg name="forward_sign" default="1.0" />
+    <arg name="lateral_sign" default="1.0" />
+    <!-- Scripted benchmark runs feed /joy via joy_trace_replay.py; set false there so a real
+         attached controller doesn't race the trace on the same topic. -->
+    <arg name="enable_joy_node" default="true" />
+    <include file="$(find human_input_sim)/launch/xbox_input.launch">
+        <arg name="joy_device" value="$(arg joy_device)" />
+        <arg name="joy_name" value="$(arg joy_name)" />
+        <arg name="forward_sign" value="$(arg forward_sign)" />
+        <arg name="lateral_sign" value="$(arg lateral_sign)" />
+        <arg name="intent_topic" value="/human_intent" />
+        <arg name="max_speed" value="2" />
+        <arg name="enable_joy_node" value="$(arg enable_joy_node)" />
+    </include>
+
+  <node name="formation_planning" pkg="fluid" type="formation_planning" output="screen">
+        <!-- Plan Manager -->
+        <param name="gvf/cloud_topic"      type="string" value="$(arg cloud_topic)" />
+        <param name="gvf/odom_topic"       type="string" value="$(arg odom_topic)" />
+        <param name="gvf/cmd_topic"        type="string" value="$(arg cmd_topic)" />
+        <param name="gvf/human_input_enable" value="true" />
+        <param name="gvf/human_intent_topic" value="/human_intent" />
+        <param name="gvf/human_intent_timeout" value="0.5" />
+        <param name="gvf/human_intent_max_speed" value="2" />
+        <!-- Local ESDF harmonic stream-function guidance. Keep these explicit so the
+             benchmark's rosparam snapshot is sufficient to reproduce an avoidance run. -->
+        <param name="gvf/fluid_cruise_z" value="1.0" />
+        <param name="gvf/fluid_window_forward_size" value="$(arg fluid_window_forward_size)" />
+        <param name="gvf/fluid_window_lateral_size" value="$(arg fluid_window_lateral_size)" />
+        <param name="gvf/fluid_window_rear_margin" value="$(arg fluid_window_rear_margin)" />
+        <param name="gvf/fluid_grid_resolution" value="$(arg fluid_grid_resolution)" />
+        <param name="gvf/fluid_cg_tolerance" value="$(arg fluid_cg_tolerance)" />
+        <param name="gvf/fluid_use_regression" value="$(arg fluid_use_regression)" />
+        <param name="gvf/fluid_cg_max_iterations" value="$(arg fluid_cg_max_iterations)" />
+        <param name="gvf/fluid_coarse_grid_resolution" value="$(arg fluid_coarse_grid_resolution)" />
+        <param name="gvf/fluid_fine_forward_size" value="$(arg fluid_fine_forward_size)" />
+        <param name="gvf/fluid_fine_lateral_size" value="$(arg fluid_fine_lateral_size)" />
+        <param name="gvf/fluid_use_coarse" value="$(arg fluid_use_coarse)" />
+        <param name="gvf/fluid_use_fine" value="$(arg fluid_use_fine)" />
+        <param name="gvf/fluid_d_s" value="0.30" />
+        <param name="gvf/fluid_d_drag" value="0.60" />
+        <param name="gvf/fluid_d_turn" value="0.90" />
+        <param name="gvf/fluid_d_look" value="2.50" />
+        <param name="gvf/fluid_delta_theta_max_rad" value="0.6" />
+        <param name="gvf/fluid_conv_gate_margin" value="1.0" />
+        <param name="gvf/fluid_conv_length" value="1.5" />
+        <param name="gvf/fluid_bypass_offset" value="$(arg fluid_bypass_offset)" />
+        <param name="gvf/fluid_default_bias_sign" value="1.0" />
+        <param name="gvf/fluid_side_deadband" value="0.05" />
+        <param name="gvf/fluid_speed_floor" value="0.15" />
+        <param name="gvf/fluid_escape_tangent_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_outward_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_lo_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_hi_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_solid_weight" value="0.60" />
+        <param name="gvf/fluid_safety_escape_speed_ratio" value="0.25" />
+        <param name="gvf/fluid_resolve_period" value="0.10" />
+        <param name="gvf/fluid_cg_residual_acceptance" value="10.0" />
+        <!-- 2D stream-function-error control (paper eq. 29): k_psi in s^-1 -->
+        <param name="gvf/fluid_psi_error_gain" value="1.0" />
+        <!-- 2D bypass-side latch: persist side_k across window rebuilds -->
+        <param name="gvf/fluid_side_match_centroid_dist" value="1.0" />
+        <param name="gvf/fluid_side_latch_ttl" value="2.0" />
+        <param name="gvf/fluid_side_match_lateral_tol" value="0.35" />
+        <param name="gvf/fluid_side_match_forward_tol" value="0.35" />
+        <param name="gvf/safety_min_clearance" value="0.30" />
+        <param name="gvf/safety_brake_decel" value="1.5" />
+        <!-- Closed-form CBF safety projection (paper VIII): k_h in s^-1,
+             applied as the last modification before publish; corrupted ESDF
+             reads defer to the last verified (h,grad) for this age -->
+        <param name="gvf/cbf_gain" value="1.5" />
+        <param name="gvf/safety_esdf_max_age" value="0.5" />
+
+        <!-- vel_max/speed_max: GVF 与 cmd_pos 的速度上限 -->
+        <param name="gvf/cmd/vel_max" value="2.0" />
+        <param name="gvf/odom_vel_est_window" value="0.3" />
+        <param name="gvf/odom_vel_lpf_hz" value="2.0" />
+
+        <!-- SDF Map -->
+        <param name="sdf_map/resolution"   value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+
+        <param name="sdf_map/obstacles_inflation"     value="0.099" />
+        <param name="sdf_map/local_bound_inflate"    value="0.0"/>
+        <param name="sdf_map/local_map_margin" value="50"/>
+        <param name="sdf_map/ground_height"        value="-0.01"/>
+        <param name="sdf_map/enable_manual_map" value="true" />
+        <param name="sdf_map/manual_click_direct" value="true" />
+        <param name="sdf_map/manual_obstacle_radius" value="0.35" />
+        <param name="sdf_map/manual_obstacle_height" value="2.5" />
+        <param name="sdf_map/manual_obstacle_inflate" value="0.10" />
+        <param name="sdf_map/manual_boundary_padding" value="0.10" />
+        <param name="sdf_map/manual_boundary_z_min" value="0.0" />
+        <param name="sdf_map/manual_boundary_z_max" value="2.5" />
+        <param name="sdf_map/manual_map_file" value="$(find fluid)/config/manual_obstacles_test_gvf.txt" />
+        <param name="sdf_map/manual_map_auto_load" value="true" />
+        <param name="sdf_map/manual_map_auto_save" value="true" />
+
+        <!-- depth filter -->
+        <param name="sdf_map/use_depth_filter" value="true"/>
+        <param name="sdf_map/depth_filter_tolerance" value="0.15"/>
+        <param name="sdf_map/depth_filter_maxdist"   value="5.0"/>
+        <param name="sdf_map/depth_filter_mindist"   value="0.2"/>
+        <param name="sdf_map/depth_filter_margin"    value="2"/>
+        <param name="sdf_map/k_depth_scaling_factor" value="1000.0"/>
+        <param name="sdf_map/skip_pixel" value="2"/>
+        <!-- local fusion -->
+        <param name="sdf_map/p_hit"  value="0.65"/>
+        <param name="sdf_map/p_miss" value="0.35"/>
+        <param name="sdf_map/p_min"  value="0.12"/>
+        <param name="sdf_map/p_max"  value="0.90"/>
+        <param name="sdf_map/p_occ"  value="0.80"/>
+        <param name="sdf_map/min_ray_length" value="0.5"/>
+        <param name="sdf_map/max_ray_length" value="4.5"/>
+        <param name="sdf_map/esdf_slice_height" value="0.3"/>
+        <param name="sdf_map/visualization_truncate_height"   value="2.49"/>
+        <param name="sdf_map/virtual_ceil_height"   value="2.5"/>
+        <param name="sdf_map/show_occ_time"  value="false"/>
+        <param name="sdf_map/show_esdf_time" value="false"/>
+        <param name="sdf_map/pose_type"     value="2"/>
+        <param name="sdf_map/frame_id"      value="world"/>
+        <param name="sdf_map/buffer_refresh_period" value="3.0" />
+    </node>
+
+    <node pkg="map_generator" type="local_sensing" name="map_generator" output="screen">
+        <param name="sdf_map/resolution" value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+        <param name="fluid_window_forward_size" value="$(arg fluid_window_forward_size)" />
+        <param name="fluid_window_lateral_size" value="$(arg fluid_window_lateral_size)" />
+        <param name="fluid_window_rear_margin" value="$(arg fluid_window_rear_margin)" />
+        <param name="human_intent_topic" value="/human_intent" />
+        <param name="occlusion_culling" value="$(arg occlusion_culling)" />
+        <param name="local_map_topic" value="$(arg local_map_topic)" />
+        <param name="odom_topic" value="$(arg odom_topic)" />
+    </node>
+</launch>

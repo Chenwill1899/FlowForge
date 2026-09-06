@@ -1,0 +1,12 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# World-frame +X crossing test. The unit forward intent is scaled by the
+# benchmark v_max setting and therefore publishes (1, 0) at 1 m/s.
+events:
+  - {at: 0.0, forward: 1.0, lateral: 0.0}
+  - {at: 40.0, forward: 0.0, lateral: 0.0}

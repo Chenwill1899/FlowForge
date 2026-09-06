@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>gvf_cmd_bridge</name>
+  <version>0.0.0</version>
+  <description>Bridges the drone-oriented quadrotor_msgs/PositionCommand output of the GVF planner into geometry_msgs/Twist, so unmodified drone planner configs can drive ground-robot simulators (B2, differential-drive) for smoke testing.</description>
+  <maintainer email="cxq@todo.todo">cxq</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>quadrotor_msgs</build_depend>
+  <build_depend>tf</build_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>quadrotor_msgs</exec_depend>
+  <exec_depend>tf</exec_depend>
+</package>

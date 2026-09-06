@@ -1,0 +1,29 @@
+<launch>
+  <!-- Standalone demo: planar kinematic simulator for the B2 quadruped platform.
+       Drive it by publishing geometry_msgs/Twist on cmd_topic, watch /sim/odom in RViz. -->
+  <arg name="init_x" default="0.0"/>
+  <arg name="init_y" default="0.0"/>
+  <arg name="init_z" default="0.5"/>
+  <arg name="init_yaw" default="0.0"/>
+  <arg name="odom_topic" default="/sim/odom"/>
+  <arg name="cmd_topic" default="/cmd_vel"/>
+  <arg name="frame_id" default="world"/>
+  <arg name="child_frame_id" default="b2_base"/>
+  <arg name="rate" default="50.0"/>
+  <arg name="enable_rviz" default="true"/>
+
+  <node pkg="b2_gvf_sim" type="b2_kinematic_sim" name="b2_kinematic_sim" output="screen">
+    <param name="sim/init_x" value="$(arg init_x)"/>
+    <param name="sim/init_y" value="$(arg init_y)"/>
+    <param name="sim/init_z" value="$(arg init_z)"/>
+    <param name="sim/init_yaw" value="$(arg init_yaw)"/>
+    <param name="sim/odom_topic" value="$(arg odom_topic)"/>
+    <param name="sim/cmd_topic" value="$(arg cmd_topic)"/>
+    <param name="sim/frame_id" value="$(arg frame_id)"/>
+    <param name="sim/child_frame_id" value="$(arg child_frame_id)"/>
+    <param name="sim/rate" value="$(arg rate)"/>
+  </node>
+
+  <node if="$(arg enable_rviz)" pkg="rviz" type="rviz" name="rviz"
+        args="-d $(find b2_gvf_sim)/config/rviz.rviz"/>
+</launch>

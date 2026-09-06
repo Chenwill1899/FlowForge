@@ -1,0 +1,10 @@
+name: single_obstacle_2d
+
+# Single full-height box obstacle for the 2D human-intent benchmark: the
+# intent-change trace drives the robot past it, testing detour-side
+# selection and the side latch under lateral-input reversals. x in [12,14]
+# so the trace's steering phases bracket the encounter and the run ends
+# around x ~ 22 (map edge at +25).
+boxes:
+  - {center_x: 13.0, center_y: 0.0, thickness_x: 2.0, half_length_y: 1.0,
+     z_min: 0.0, z_max: 2.4, point_spacing: 0.1}

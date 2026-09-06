@@ -1,0 +1,20 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Intent-change / detour-side-stability test (single obstacle at x=13):
+#   straight approach  -> steer RIGHT (preference right)
+#   -> steer LEFT (preference flips) while the box enters the window
+#   -> straighten and drive past -> release.
+# The lateral reversals exercise the field/streamline/command continuity
+# and the detour-side latch; the box encounter happens during the left
+# steer (the latched bypass side).
+events:
+  - {at: 0.0,  forward: 1.0, lateral: 0.0}
+  - {at: 3.0,  forward: 0.8, lateral: 0.6}
+  - {at: 6.0,  forward: 0.8, lateral: -0.6}
+  - {at: 9.0,  forward: 1.0, lateral: 0.0}
+  - {at: 12.5, forward: 0.0, lateral: 0.0}

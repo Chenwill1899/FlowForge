@@ -1,0 +1,41 @@
+<launch>
+  <!-- Platform side of a GVF benchmark run for the B2 quadruped: kinematic simulator +
+       PositionCommand->Twist bridge + base map, mirroring so3_quadrotor_simulator's
+       simulator.launch so it can be swapped in under scripts/run_baseline_benchmark.sh.
+       The GVF planner (fluid/test_gvf.launch) is launched unchanged by the caller. -->
+  <arg name="init_x" default="0.0"/>
+  <arg name="init_y" default="0.0"/>
+  <arg name="init_z" default="0.5"/>
+  <arg name="map" default="$(find map_generator)/resource/office.pcd"/>
+  <arg name="enable_rviz" default="true"/>
+  <arg name="rviz_config" default="$(find b2_gvf_sim)/config/rviz.rviz"/>
+
+  <node pkg="map_generator" type="map_pub" name="map_pub" output="screen" args="$(arg map)"/>
+
+  <node pkg="b2_gvf_sim" type="b2_kinematic_sim" name="b2_kinematic_sim" output="screen">
+    <param name="sim/init_x" value="$(arg init_x)"/>
+    <param name="sim/init_y" value="$(arg init_y)"/>
+    <param name="sim/init_z" value="$(arg init_z)"/>
+    <param name="sim/init_yaw" value="0.0"/>
+    <param name="sim/odom_topic" value="/sim/odom"/>
+    <param name="sim/cmd_topic" value="/cmd_vel"/>
+    <param name="sim/frame_id" value="world"/>
+    <param name="sim/child_frame_id" value="b2_base"/>
+    <param name="sim/rate" value="50.0"/>
+  </node>
+
+  <node pkg="gvf_cmd_bridge" type="position_cmd_to_twist_bridge" name="gvf_cmd_bridge" output="screen">
+    <param name="bridge/odom_topic" value="/sim/odom"/>
+    <param name="bridge/cmd_in_topic" value="/position_cmd"/>
+    <param name="bridge/cmd_out_topic" value="/cmd_vel"/>
+    <param name="bridge/mode" value="holonomic"/>
+    <param name="bridge/max_vx" value="0.6"/>
+    <param name="bridge/max_vy" value="0.4"/>
+    <param name="bridge/max_w" value="1.2"/>
+  </node>
+
+  <!-- Match the original ISF-GVF_Car launch pattern: visualization is enabled by
+       default but remains optional, so closing RViz does not abort data capture. -->
+  <node if="$(arg enable_rviz)" pkg="rviz" type="rviz" name="b2_benchmark_rviz"
+        args="-d $(arg rviz_config)" output="screen" required="false"/>
+</launch>

@@ -1,0 +1,12 @@
+<launch>
+  <!-- Stub: the real B2 wireless gamepad node publishes /human_intent from the
+       robot's built-in controller. During bag replay /human_intent is already
+       provided by the recorded bag, so this node is intentionally empty.
+       Args are declared to match the interface b2_gvf_real.launch uses. -->
+  <arg name="network_interface" default="eth0"/>
+  <arg name="odom_topic" default="/Odometry"/>
+  <arg name="intent_topic" default="/human_intent"/>
+  <arg name="max_speed" default="0.6"/>
+  <arg name="forward_sign" default="1.0"/>
+  <arg name="lateral_sign" default="1.0"/>
+</launch>

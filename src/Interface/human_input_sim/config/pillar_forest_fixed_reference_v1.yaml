@@ -1,0 +1,17 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Experiment I: deliberately slow, straight crossing segment in the clear
+# entrance corridor of pillar_forest_mixed.  The 25 s duration keeps the
+# benchmark's 30 s recording convention, while the 0.25 m/s world -y command
+# stays within the first frozen streamline's 4 m forward reach and outside
+# the obstacle/safety bands.  The sole 0.4 N pulse is scheduled by
+# run_sim_paper.sh at 6--7 s; recording continues far beyond the required
+# 5 s recovery window.
+events:
+  - {at: 0.0, forward: 0.0, lateral: -0.25}
+  - {at: 25.0, forward: 0.0, lateral: 0.0}

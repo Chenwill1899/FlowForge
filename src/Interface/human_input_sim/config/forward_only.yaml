@@ -1,0 +1,16 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Constant full-forward intent for the flow-GVF coarse/fine benchmark scenes
+# (nominal start (0,0,1), nominal intent world-frame +x per
+# dynamic_map_generator/resource/flow-gvf/README.md). Holds forward=1.0 for
+# 25s -- comfortably enough at up to 2 m/s to clear the longest scene
+# (two_gate_s_corridor.pcd, x in [-2,18]) even with slowdowns near
+# obstacles -- then returns to zero as required by joy_trace_replay.py.
+events:
+  - {at: 0.0, forward: 1.0, lateral: 0.0}
+  - {at: 25.0, forward: 0.0, lateral: 0.0}

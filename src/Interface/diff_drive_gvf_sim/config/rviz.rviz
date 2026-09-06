@@ -1,0 +1,249 @@
+Panels:
+  - Class: rviz/Displays
+    Help Height: 78
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /TF1
+        - /Odometry1
+        - /MarkerArray1
+      Splitter Ratio: 0.5
+    Tree Height: 617
+  - Class: rviz/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 40
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Alpha: 0.85
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 150; 150; 150
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: Global Map
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 2
+      Size (m): 0.05
+      Style: Flat Squares
+      Topic: /mock_map
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: false
+      Value: true
+    - Alpha: 0.8
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 1.3
+        Min Value: 0
+        Value: true
+      Axis: Z
+      Channel Name: z
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 180; 20; 140
+      Min Color: 0; 255; 255
+      Name: Inflated Obstacles
+      Position Transformer: XYZ
+      Queue Size: 100
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.07
+      Style: Points
+      Topic: /particle0sdf_map/occupancy_inflate
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 255; 70; 50
+      Enabled: true
+      Head Diameter: 0.15
+      Head Length: 0.1
+      Length: 0.3
+      Line Style: Billboards
+      Line Width: 0.08
+      Name: GVF Reference Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 70; 50
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.03
+      Shaft Diameter: 0.05
+      Shaft Length: 0.1
+      Topic: /particle0/path
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 40; 190; 255
+      Enabled: true
+      Head Diameter: 0.15
+      Head Length: 0.1
+      Length: 0.3
+      Line Style: Billboards
+      Line Width: 0.05
+      Name: Executed Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 40; 190; 255
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.03
+      Shaft Diameter: 0.05
+      Shaft Length: 0.1
+      Topic: /gvf_car/executed_path
+      Unreliable: false
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 255; 180; 0
+      Enabled: false
+      Head Diameter: 0.15
+      Head Length: 0.1
+      Length: 0.3
+      Line Style: Lines
+      Line Width: 0.04
+      Name: Kino Guide Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 180; 0
+      Pose Style: None
+      Queue Size: 10
+      Radius: 0.03
+      Shaft Diameter: 0.05
+      Shaft Length: 0.1
+      Topic: /particle0/kinopath
+      Unreliable: false
+      Value: false
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /particle0/intent_corridor
+      Name: Intent Corridor
+      Namespaces:
+        intent_corridor: true
+      Queue Size: 10
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /goal_vis
+      Name: Goal
+      Namespaces:
+        {}
+      Queue Size: 10
+      Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Update Interval: 0
+      Value: true
+    - Angle Tolerance: 0.1
+      Class: rviz/Odometry
+      Enabled: true
+      Keep: 200
+      Name: Odometry
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.4
+        Axes Radius: 0.05
+        Color: 40; 170; 240
+        Head Length: 0.2
+        Head Radius: 0.15
+        Shaft Length: 0.3
+        Shaft Radius: 0.05
+        Value: Arrow
+      Topic: /sim/odom
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /gvf_car/robot_model
+      Name: Differential Drive Model
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+  Value: true
+  Views:
+    Current:
+      Class: rviz/Orbit
+      Distance: 15
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Name: Current View
+      Pitch: 0.6
+      Target Frame: <Fixed Frame>
+      Yaw: 0.78
+    Saved: ~
+Window Geometry:
+  Height: 846
+  Width: 1200
+  X: 60
+  Y: 60

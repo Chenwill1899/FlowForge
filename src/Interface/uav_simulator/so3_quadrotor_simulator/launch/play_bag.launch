@@ -1,0 +1,30 @@
+<launch>
+  <!-- Offline visualization only: start rosbag play separately. -->
+  <arg name="enable_fpv" default="true"/>
+  <arg name="enable_swarm" default="true"/>
+
+  <param name="use_sim_time" value="true"/>
+  <!-- The bag's recorded occupancy topics are empty; recover them from obstacle points. -->
+  <node pkg="b2_gvf_sim" type="pointcloud_to_occupancy.py" name="b2_pointcloud_to_occupancy" output="screen">
+    <param name="input_topic" value="/fastLIO/non_ground_points"/>
+    <param name="occupancy_topic" value="/b2/gvf/occupancy"/>
+    <param name="inflate_topic" value="/b2/gvf/occupancy_inflate"/>
+  </node>
+  <node pkg="b2_gvf_sim" type="height_clip_pointcloud.py" name="b2_height_clip" output="screen">
+    <param name="odom_topic" value="/Odometry"/>
+    <rosparam param="topics">
+      - {input: /manual_map/occupancy, output: /b2/clip/manual_map}
+      - {input: /cloud_registered, output: /b2/clip/cloud_registered}
+      - {input: /fastLIO/non_ground_points, output: /b2/clip/non_ground_points}
+      - {input: /particle0/gvf/esdf, output: /b2/clip/esdf}
+      - {input: /b2/gvf/occupancy, output: /b2/clip/occupancy}
+      - {input: /b2/gvf/occupancy_inflate, output: /b2/clip/occupancy_inflate}
+    </rosparam>
+  </node>
+  <!-- B2-bag-specific close-following view; the original fpv.rviz is untouched. -->
+  <node if="$(arg enable_fpv)" pkg="rviz" type="rviz" name="bag_fpv_rviz"
+        output="screen" args="-d $(find so3_quadrotor_simulator)/config/b2_bag_fpv.rviz"/>
+  <!-- B2-bag-specific global view; the original swarm_rviz.rviz is untouched. -->
+  <node if="$(arg enable_swarm)" pkg="rviz" type="rviz" name="bag_swarm_rviz"
+        output="screen" args="-d $(find so3_quadrotor_simulator)/config/b2_bag_swarm.rviz"/>
+</launch>

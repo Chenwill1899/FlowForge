@@ -1,0 +1,16 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Times are command-arrival times at the robot. Values match normalized Xbox axes.
+# Figure-8: up-left n=5s, down n=5s, up-right 2n=10s, down n=5s, up-left n=5s, stop.
+events:
+  - {at: 0.0, forward: 0.7071, lateral: -0.7071}
+  - {at: 10.0, forward: -1.0, lateral: 0.0}
+  - {at: 20.0, forward: 0.7071, lateral: 0.7071}
+  - {at: 30.0, forward: -1.0, lateral: 0.0}
+  - {at: 40.0, forward: 0.7071, lateral: -0.7071}
+  - {at: 50.0, forward: 0.0, lateral: 0.0}

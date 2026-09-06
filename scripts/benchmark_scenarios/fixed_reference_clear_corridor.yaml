@@ -1,0 +1,13 @@
+name: fixed_reference_clear_corridor
+
+# Experiment I only: a straight, obstacle-free 3-D corridor for validating
+# the horizontal fixed-reference law.  The ground and distant side pillars
+# keep the normal ESDF pipeline active, but no obstacle lies within the
+# 4 m frozen-streamline forward segment or its safety band.
+ground:
+  {x_min: -7.0, x_max: 7.0, y_min: -14.0, y_max: 14.0, z: 0.0, point_spacing: 0.1}
+pillars:
+  - {center_x: -5.5, center_y: 4.0, radius: 0.35, z_min: 0.0, z_max: 3.3, point_spacing: 0.1}
+  - {center_x: 5.5, center_y: 4.0, radius: 0.35, z_min: 0.0, z_max: 3.3, point_spacing: 0.1}
+  - {center_x: -5.5, center_y: -6.0, radius: 0.35, z_min: 0.0, z_max: 3.3, point_spacing: 0.1}
+  - {center_x: 5.5, center_y: -6.0, radius: 0.35, z_min: 0.0, z_max: 3.3, point_spacing: 0.1}

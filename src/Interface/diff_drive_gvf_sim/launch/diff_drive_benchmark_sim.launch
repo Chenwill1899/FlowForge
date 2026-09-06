@@ -1,0 +1,94 @@
+<launch>
+  <!-- Platform side of a GVF benchmark run for the differential-drive (Scout-class) robot:
+       kinematic simulator + PositionCommand->Twist bridge + base map, mirroring
+       so3_quadrotor_simulator's simulator.launch so it can be swapped in under
+       scripts/run_baseline_benchmark.sh. The GVF planner (fluid/test_gvf.launch) is
+       launched unchanged by the caller. -->
+  <arg name="init_x" default="0.0"/>
+  <arg name="init_y" default="0.0"/>
+  <arg name="init_yaw" default="0.0"/>
+  <!-- Keep the benchmark scene identical to the current quadrotor simulator. -->
+  <arg name="map" default="$(find map_generator)/resource/pillar.pcd"/>
+  <arg name="enable_rviz" default="true"/>
+  <!-- Platform speed cap. Kept above the planner's gvf/cmd/vel_max (test_gvf_diff_drive.launch's
+       v_max, currently 1.0) so the planner's commanded speed doesn't ride the platform ceiling
+       and saturate the bridge/limiter for long stretches. -->
+  <arg name="platform_max_v" default="1.15"/>
+  <!-- Turn-rate ceiling (rad/s) shared by the sim yaw integrator and the diff-drive
+       bridge clamp. Raised from 0.5235 (30 deg/s) to 1.0 (57 deg/s) so heading
+       error converges noticeably faster; yaw_kp is the bridge's heading-error gain. -->
+  <arg name="platform_max_w" default="1.0"/>
+  <arg name="bridge_yaw_kp" default="3.5"/>
+  <!-- Reference Scout 2 STL is scaled from 1.0 mm-to-m to 2/3 size for this run. -->
+  <arg name="robot_model_scale" default="0.000666667"/>
+
+  <node pkg="map_generator" type="map_pub" name="map_pub" output="screen" args="$(arg map)"/>
+
+  <node pkg="diff_drive_gvf_sim" type="diff_drive_sim" name="diff_drive_sim" output="screen">
+    <param name="sim/init_x" value="$(arg init_x)"/>
+    <param name="sim/init_y" value="$(arg init_y)"/>
+    <param name="sim/init_yaw" value="$(arg init_yaw)"/>
+    <param name="sim/odom_topic" value="/sim/odom"/>
+    <param name="sim/cmd_topic" value="/cmd_vel"/>
+    <param name="sim/world_frame" value="world"/>
+    <param name="sim/base_frame" value="base_link"/>
+    <param name="sim/update_rate" value="50.0"/>
+    <param name="sim/max_v" value="$(arg platform_max_v)"/>
+    <param name="sim/min_w" value="-$(arg platform_max_w)"/>
+    <param name="sim/max_w" value="$(arg platform_max_w)"/>
+  </node>
+
+  <node pkg="diff_drive_gvf_sim" type="car_model_visualization" name="car_model_visualization" output="screen">
+    <param name="viz/odom_topic" value="/sim/odom"/>
+    <param name="viz/frame_id" value="world"/>
+    <param name="viz/single_marker_topic" value="/gvf_car/robot_marker"/>
+    <param name="viz/model_scale" value="$(arg robot_model_scale)"/>
+  </node>
+
+  <!-- Scout 2 model: URDF + robot_state_publisher (base_link -> wheels TF). -->
+  <param name="robot_description"
+         textfile="$(find diff_drive_gvf_sim)/urdf/scout2/scout2.urdf"/>
+  <node pkg="robot_state_publisher" type="robot_state_publisher"
+        name="robot_state_publisher" output="screen">
+    <param name="publish_frequency" value="50.0"/>
+  </node>
+
+  <node pkg="gvf_cmd_bridge" type="position_cmd_to_twist_bridge" name="gvf_cmd_bridge" output="screen">
+    <param name="bridge/odom_topic" value="/sim/odom"/>
+    <param name="bridge/cmd_in_topic" value="/position_cmd"/>
+    <param name="bridge/cmd_out_topic" value="/cmd_vel"/>
+    <param name="bridge/mode" value="diff_drive"/>
+    <param name="bridge/max_vx" value="$(arg platform_max_v)"/>
+    <param name="bridge/max_w" value="$(arg platform_max_w)"/>
+    <param name="bridge/yaw_kp" value="$(arg bridge_yaw_kp)"/>
+  </node>
+
+  <!-- Reuse the quadrotor's two RViz layouts so platform comparisons differ only in
+       robot/odometry/executed-path sources, not in maps, displays, tools, or views.
+       The copies display the reference Scout 2 STL marker and disable the old URDF model. -->
+  <arg name="global_rviz_config"
+       default="$(find diff_drive_gvf_sim)/config/benchmark_swarm.rviz"/>
+  <arg name="fpv_rviz_config"
+       default="$(find diff_drive_gvf_sim)/config/benchmark_fpv.rviz"/>
+
+  <!-- The UAV FPV layout follows frame "base". Preserve the differential-drive
+       convention "base_link" and provide a visualization-only identity alias. -->
+  <group if="$(arg enable_rviz)">
+    <node pkg="tf" type="static_transform_publisher" name="diff_drive_fpv_frame"
+          args="0 0 0 0 0 0 base_link base 100"/>
+
+    <node pkg="rviz" type="rviz" name="diff_drive_benchmark_rviz"
+          args="-d $(arg global_rviz_config)" output="screen" required="false">
+      <remap from="/odom_visualization/robot" to="/gvf_car/robot_marker"/>
+      <remap from="/odom_visualization/path" to="/gvf_car/executed_path"/>
+      <remap from="/drone_1_visual_slam/odom" to="/sim/odom"/>
+    </node>
+
+    <node pkg="rviz" type="rviz" name="diff_drive_benchmark_fpv_rviz"
+          args="-d $(arg fpv_rviz_config)" output="screen" required="false">
+      <remap from="/odom_visualization/robot" to="/gvf_car/robot_marker"/>
+      <remap from="/odom_visualization/path" to="/gvf_car/executed_path"/>
+      <remap from="/drone_1_visual_slam/odom" to="/sim/odom"/>
+    </node>
+  </group>
+</launch>

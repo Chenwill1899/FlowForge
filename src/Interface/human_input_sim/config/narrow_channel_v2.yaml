@@ -1,0 +1,12 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Straight +x through the 1.2 m channel (x in [0,16]) and out into the open
+# field; release before the map edge.
+events:
+  - {at: 0.0, forward: 1.0, lateral: 0.0}
+  - {at: 11.0, forward: 0.0, lateral: 0.0}

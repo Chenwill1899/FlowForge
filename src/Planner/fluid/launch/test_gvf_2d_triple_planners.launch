@@ -1,0 +1,51 @@
+<launch>
+    <!-- Planner side of the 2D triple ablation: three formation_planning +
+         local_sensing stacks in namespaces r1/r2/r3, launched by the runner
+         AFTER test_gvf_2d_triple_sim.launch has all three controllers
+         hovering, so the boot-time free-fall window cannot lock a low
+         altitude.
+           r1 = nested (coarse+fine), r2 = coarse-only, r3 = fine-only. -->
+    <arg name="occlusion_culling" default="true"/>
+
+    <!-- ============================== r1: nested ============================== -->
+    <group ns="r1">
+        <include file="$(find fluid)/launch/test_gvf.launch">
+            <arg name="cloud_topic" value="/r1/sim/local_map"/>
+            <arg name="odom_topic" value="/r1/sim/odom"/>
+            <arg name="cmd_topic" value="/r1/position_cmd"/>
+            <arg name="local_map_topic" value="/r1/sim/local_map"/>
+            <arg name="enable_joy_node" value="false"/>
+            <arg name="fluid_use_coarse" value="true"/>
+            <arg name="fluid_use_fine" value="true"/>
+            <arg name="occlusion_culling" value="$(arg occlusion_culling)"/>
+        </include>
+    </group>
+
+    <!-- =========================== r2: coarse-only =========================== -->
+    <group ns="r2">
+        <include file="$(find fluid)/launch/test_gvf.launch">
+            <arg name="cloud_topic" value="/r2/sim/local_map"/>
+            <arg name="odom_topic" value="/r2/sim/odom"/>
+            <arg name="cmd_topic" value="/r2/position_cmd"/>
+            <arg name="local_map_topic" value="/r2/sim/local_map"/>
+            <arg name="enable_joy_node" value="false"/>
+            <arg name="fluid_use_coarse" value="true"/>
+            <arg name="fluid_use_fine" value="false"/>
+            <arg name="occlusion_culling" value="$(arg occlusion_culling)"/>
+        </include>
+    </group>
+
+    <!-- ============================ r3: fine-only ============================ -->
+    <group ns="r3">
+        <include file="$(find fluid)/launch/test_gvf.launch">
+            <arg name="cloud_topic" value="/r3/sim/local_map"/>
+            <arg name="odom_topic" value="/r3/sim/odom"/>
+            <arg name="cmd_topic" value="/r3/position_cmd"/>
+            <arg name="local_map_topic" value="/r3/sim/local_map"/>
+            <arg name="enable_joy_node" value="false"/>
+            <arg name="fluid_use_coarse" value="false"/>
+            <arg name="fluid_use_fine" value="true"/>
+            <arg name="occlusion_culling" value="$(arg occlusion_culling)"/>
+        </include>
+    </group>
+</launch>

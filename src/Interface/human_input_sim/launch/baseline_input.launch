@@ -1,0 +1,33 @@
+<launch>
+  <arg name="trace_file" default="$(find human_input_sim)/config/baseline_v1.yaml" />
+  <arg name="joy_topic" default="/joy" />
+  <arg name="intent_topic" default="/human_intent" />
+  <arg name="frame_id" default="world" />
+  <arg name="forward_axis" default="1" />
+  <arg name="lateral_axis" default="0" />
+  <arg name="forward_sign" default="1.0" />
+  <arg name="lateral_sign" default="1.0" />
+  <arg name="deadzone" default="0.15" />
+  <arg name="max_speed" default="1.0" />
+  <arg name="intent_rate_hz" default="1.0" />
+  <arg name="joy_timeout" default="0.5" />
+
+  <node pkg="human_input_sim" type="joy_to_intent.py" name="joy_to_intent" output="screen">
+    <param name="joy_topic" value="$(arg joy_topic)" />
+    <param name="intent_topic" value="$(arg intent_topic)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+    <param name="forward_axis" value="$(arg forward_axis)" />
+    <param name="lateral_axis" value="$(arg lateral_axis)" />
+    <param name="forward_sign" value="$(arg forward_sign)" />
+    <param name="lateral_sign" value="$(arg lateral_sign)" />
+    <param name="deadzone" value="$(arg deadzone)" />
+    <param name="max_speed" value="$(arg max_speed)" />
+    <param name="intent_rate_hz" value="$(arg intent_rate_hz)" />
+    <param name="joy_timeout" value="$(arg joy_timeout)" />
+  </node>
+
+  <node pkg="human_input_sim" type="joy_trace_replay.py" name="joy_trace_replay" output="screen">
+    <param name="trace_file" value="$(arg trace_file)" />
+    <param name="joy_topic" value="$(arg joy_topic)" />
+  </node>
+</launch>

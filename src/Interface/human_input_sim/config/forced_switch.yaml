@@ -1,0 +1,15 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Forced-channel-switch test: a single command driving the robot straight along +x
+# from the start (0,0) into the staggered-gap scene (forced_switch_v1.pcd): wall A at
+# x=3 blocks the upper+center cross-section, wall B at x=4 blocks the lower+center, so
+# the free channel is lower near x=3 and upper near x=4 -- non-overlapping adjacent
+# stations that must fire a CHI channel reseed. Hold straight long enough to traverse.
+events:
+  - {at: 0.0,  forward: 1.0, lateral: 0.0}
+  - {at: 10.0, forward: 0.0, lateral: 0.0}

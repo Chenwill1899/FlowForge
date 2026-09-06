@@ -1,0 +1,14 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# 32 s: no-ground flight drops the average speed to ~1.0 m/s and the field
+# can detour around the dense pillar field (observed up to y ~ -4), so a
+# 22 s trace sometimes ends before the course_end_x is reached. 32 s gives
+# the detour margin while staying well inside the +-50 m map edge.
+events:
+  - {at: 0.0, forward: 1.0, lateral: 0.0}
+  - {at: 32.0, forward: 0.0, lateral: 0.0}

@@ -1,0 +1,157 @@
+<robot name="scout_v2" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:arg name="robot_namespace" default="/" />
+
+    <xacro:property name="M_PI" value="3.14159"/>
+    <xacro:property name="base_x_size" value="0.9250000" />
+    <xacro:property name="base_y_size" value="0.380000" />
+    <xacro:property name="base_z_size" value="0.210000" />
+
+    <xacro:property name="wheelbase" value="0.498" />
+    <xacro:property name="track" value="0.58306" />
+    <xacro:property name="wheel_vertical_offset" value="-0.0702" />
+
+    <xacro:property name="wheel_length" value="1.1653e-01" />
+    <xacro:property name="wheel_radius" value="1.6459e-01" />
+
+
+    <xacro:include filename="$(find diff_drive_gvf_sim)/urdf/scout2/scout2_xacro.xacro" />
+
+    <!-- Base link -->
+    <link name="base_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://diff_drive_gvf_sim/meshes/base_link.dae" />
+            </geometry>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0.008" rpy="0 0 0" />
+            <geometry>
+                <box size="${base_x_size} ${base_y_size} ${base_z_size}"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin xyz="0 0 ${base_z_size/6}" rpy="0 0 0" />
+            <geometry>
+                <box size="${base_x_size/6} ${base_y_size*1.65} ${base_z_size/3}"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <link name="inertial_link">
+        <inertial>
+            <mass value="200" />
+            <!-- <mass value="50" /> -->
+            <!-- <origin xyz="-0.00065 -0.085 0.062" />
+            <inertia ixx="0.6022" ixy="-0.02364" ixz="-0.1197" iyy="1.7386" iyz="-0.001544" izz="2.0296" /> -->
+            <origin xyz="0.0 0.0 0.0" />
+            <inertia ixx="2.288641" ixy="0" ixz="0" iyy="5.103976" iyz="0" izz="3.431465" />
+        </inertial>
+    </link>
+
+    <joint name="inertial_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <parent link="base_link" />
+        <child link="inertial_link" />
+    </joint>
+
+    <xacro:scout_wheel_type1 wheel_prefix="front_right">
+        <origin xyz="${wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="3.14 0 0" />
+    </xacro:scout_wheel_type1>
+    <xacro:scout_wheel_type2 wheel_prefix="front_left">
+        <origin xyz="${wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+    </xacro:scout_wheel_type2>
+    <xacro:scout_wheel_type1 wheel_prefix="rear_left">
+        <origin xyz="${-wheelbase/2} ${track/2} ${wheel_vertical_offset}" rpy="0 0 0" />
+    </xacro:scout_wheel_type1>
+    <xacro:scout_wheel_type2 wheel_prefix="rear_right">
+        <origin xyz="${-wheelbase/2} ${-track/2} ${wheel_vertical_offset}" rpy="3.14 0 0" />
+    </xacro:scout_wheel_type2>
+
+    <!-- Actuator configurations -->
+    <xacro:scout_wheel_transmission wheel_prefix="front_right" />
+    <xacro:scout_wheel_transmission wheel_prefix="front_left" />
+    <xacro:scout_wheel_transmission wheel_prefix="rear_left" />
+    <xacro:scout_wheel_transmission wheel_prefix="rear_right" />
+
+    <!-- Controller configurations -->
+    <gazebo>
+        <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+            <robotNamespace>$(arg robot_namespace)</robotNamespace>
+        </plugin>
+    </gazebo>
+
+    <!-- kp spring constant, kd damping constant -->
+    <gazebo reference="front_left_wheel">
+        <mu1>10</mu1>
+        <mu2>10</mu2>
+        <kp>10000000.0</kp>
+        <kd>1.0</kd>
+        <minDepth>0.01</minDepth>
+        <fdir1>1 0 0</fdir1>
+        <maxContacts value="64"/>
+    </gazebo>
+    <gazebo reference="front_right_wheel">
+        <mu1>10</mu1>
+        <mu2>10</mu2>
+        <kp>10000000.0</kp>
+        <kd>1.0</kd>
+        <minDepth>0.01</minDepth>
+        <fdir1>1 0 0</fdir1>
+        <maxContacts value="64"/>
+    </gazebo>
+    <gazebo reference="rear_left_wheel">
+        <mu1>10</mu1>
+        <mu2>10</mu2>
+        <kp>10000000.0</kp>
+        <kd>1.0</kd>
+        <minDepth>0.01</minDepth>
+        <fdir1>1 0 0</fdir1>
+        <maxContacts value="64"/>
+    </gazebo>
+    <gazebo reference="rear_right_wheel">
+        <mu1>10</mu1>
+        <mu2>10</mu2>
+        <kp>10000000.0</kp>
+        <kd>1.0</kd>
+        <minDepth>0.01</minDepth>
+        <fdir1>1 0 0</fdir1>
+        <maxContacts value="64"/>
+    </gazebo>
+
+
+    <gazebo reference="base_link">
+	    <sensor name="imu_sensor" type="imu">
+	        <always_on>true</always_on>
+            <update_rate>200</update_rate>
+            <visualize>true</visualize>
+            <topic>imu/data</topic>
+		    <plugin name="imu_controller" filename="libgazebo_ros_imu_sensor.so" >
+			    <topicName>imu/data</topicName>
+			    <bodyName>base_link</bodyName>
+			    <updateRateHZ>200.0</updateRateHZ>
+			    <gaussianNoise>0.0</gaussianNoise>
+			    <xyzOffset>0 0 0</xyzOffset>
+			    <rpyOffset>0 0 0</rpyOffset>
+			    <frameName>imu_link</frameName>
+
+			    <gyroscopeNoiseDensity>0.0006</gyroscopeNoiseDensity>
+			    <gyroscopeRandomWalk>0.000003</gyroscopeRandomWalk>        
+			    <gyroscopeTurnOnBiasSigma>0.03</gyroscopeTurnOnBiasSigma>
+
+			    <accelerometerNoiseDensity>0.002</accelerometerNoiseDensity>
+			    <accelerometerRandomWalk>0.00002</accelerometerRandomWalk>
+			    <accelerometerTurnOnBiasSigma>0.1</accelerometerTurnOnBiasSigma>
+			</plugin>
+	  	    <pose>0 0 0 0 0 0</pose>
+	    </sensor>
+	 </gazebo>
+
+
+    <xacro:include filename="$(find velodyne_description)/urdf/VLP-16.urdf.xacro"/>
+    <xacro:VLP-16 parent="base_link" name="velodyne" topic="velodyne_points" organize_cloud="false" hz="10" samples="440" gpu="false">
+        <origin xyz="0.2 0 0.5" rpy="0 0 0" />
+    </xacro:VLP-16>
+
+</robot>

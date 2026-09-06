@@ -1,0 +1,12 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# World-frame -Y crossing test. joy_to_intent scales the unit lateral intent
+# by test_gvf_diff_drive.launch's v_max, producing a world-frame -Y command.
+events:
+  - {at: 0.0, forward: 0.0, lateral: -1.0}
+  - {at: 40.0, forward: 0.0, lateral: 0.0}

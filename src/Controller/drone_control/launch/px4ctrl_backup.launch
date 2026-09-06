@@ -1,0 +1,38 @@
+<launch>
+
+  <arg name="drone_id" default="0"/>
+  <arg name="init_x" default="0.0"/>
+  <arg name="init_y" default="0.0"/>
+  <arg name="init_z" default="1.0"/>
+  
+  <node pkg="drone_control" type="px4ctrl" name="drone_$(arg drone_id)_px4ctrl_node" output="screen">
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="hover_height" type="double" value="1.8"/>
+    <param name="stop_dist" type="double" value="1"/>
+    <param name="max_vel" type="double" value="1.75"/>
+    <param name="max_beishu" type="double" value="1.5"/>
+    <param name="px" type="double" value="1.0"/>
+    <param name="dx" type="double" value="0.25"/>
+    <param name="py" type="double" value="1.0"/>
+    <param name="dy" type="double" value="0.25"/>
+    <param name="pz" type="double" value="1.5"/>
+    <param name="yaw_rate_gain" type="double" value="1.25"/>
+    <param name="max_yaw_rate" type="double" value="100.0"/>
+    <param name="init_x" value="$(arg init_x)"/>
+    <param name="init_y" value="$(arg init_y)"/>
+    <param name="init_z" value="$(arg init_z)"/>
+    <remap from="position_cmd" to="drone_$(arg drone_id)_planning/pos_cmd"/>
+    <!-- <remap from="/control" to="/drone_$(arg drone_id)_control"/> -->
+    <remap from="/drone_state" to="/drone_$(arg drone_id)_state"/>
+  </node>
+
+
+  <node pkg="drone_control" type="flight_manager" name="drone_$(arg drone_id)_flight_manager_node" output="screen">
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="init_x" value="$(arg init_x)"/>
+    <param name="init_y" value="$(arg init_y)"/>
+    <param name="init_z" value="$(arg init_z)"/>
+    <!-- <remap from="/control" to="/drone_$(arg drone_id)_control"/> -->
+    <remap from="/drone_state" to="/drone_$(arg drone_id)_state"/>
+  </node> 
+</launch>

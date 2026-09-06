@@ -1,0 +1,298 @@
+<launch>
+    <!-- 3D 势流引导变体(test_gvf.launch 的配对拷贝,仓库惯例:每平台/模式一份
+         launch)。与 2D 基线的全部差异:
+           * gvf/fluid_solver_3d=true + gvf/fluid_3d_* 参数组
+           * 地图加高:map_size_z 3.5、virtual_ceil 3.4(2.5m 地图下 ceil_id 会越界
+             别名写地面层,见 sdf_map.cpp:1421;3.4 在 z 索引 0..34 内合法)
+           * 爬升裕度:1.2m 墙顶翻越顶点 ~1.7-2.0m,距 3.4 天花板 >= 1.1m
+           * manual_map_file 独立,避免与 2D 的手动障碍文件交叉污染
+         地面在 3D 地图里必须由 PCD 显式提供(generate_planar_wall_pcd.py 的
+         ground: 键);求解器窗口另有强制上下实心带兜底。 -->
+    <arg name="drone_id" default="1" />
+    <arg name="init_x" default="0.0" />
+    <arg name="init_y" default="0.0" />
+    <arg name="init_z" default="1.0" />
+    <!-- Paper-course cruise height. Override for scenarios authored around a
+         different altitude. -->
+    <arg name="fluid_cruise_z" default="1.0" />
+    <!-- Planning  parameters. Map boundary 100 x 100 m (+-50, set to default=
+         so a scenario can override it); the 50 x 50 map froze the robot at the
+         edge on long loops, which read as a spurious stall. -->
+    <arg name="map_size_x_" default="100.0"/>
+    <arg name="map_size_y_" default="100.0"/>
+    <arg name="map_size_z_" value="3.5"/>
+
+    <!-- The ESDF filter is axis-aligned, so it must contain every orientation of the
+         12m x 10m forward-biased sensing rectangle (farthest corner: 12.72m). -->
+    <arg name="local_update_range_x" default="13.0"/>
+    <arg name="local_update_range_y" default="13.0"/>
+    <arg name="local_update_range_z" default="3.5"/>
+    <arg name="fluid_window_forward_size" default="12.0"/>
+    <arg name="fluid_window_lateral_size" default="10.0"/>
+    <arg name="fluid_window_rear_margin" default="3.0"/>
+    <!-- Depth-camera occlusion culling in map_generator/local_sensing: drop
+         map points hidden behind nearer surfaces so the ESDF/field only sees
+         geometry the robot could perceive. Set false for the full-map A/B. -->
+    <arg name="occlusion_culling" default="true"/>
+    <!-- Cost scales steeply here: CG iterations grow as O(1/h) on top of the
+         1/h^2 growth in unknowns, so halving h is roughly 8x the solve work.
+         Note the topology a solve can see is bounded by d_s (0.30) inflation, not
+         by h: on door_width_0p8/1p2 both h=0.15 and h=0.30 blocked the 0.8 m door
+         at exactly max_x=7.69 and passed the 1.2 m door. -->
+    <arg name="fluid_grid_resolution" default="0.10"/>
+    <!-- Tunable knobs exposed as args so a scenario can override them via
+         BENCHMARK_GVF_EXTRA_ARGS without editing the launch (same pattern as
+         fluid_cruise_z). fluid_d_s: fluid solid threshold, raising it merges
+         narrow pillar gaps so the field routes around instead of threading the
+         needle (fixes random-field local traps). -->
+    <arg name="fluid_d_s" default="0.30"/>
+    <arg name="human_intent_timeout" default="0.5"/>
+    <arg name="fluid_3d_alt_gain" default="0.8"/>
+    <arg name="fluid_3d_vertical_preview_len" default="3.0"/>
+    <arg name="fluid_3d_vertical_preview_clearance" default="0.45"/>
+    <arg name="fluid_3d_vertical_preview_rate" default="0.6"/>
+    <!-- Keep the final vertical command below the old 1.2 m/s spike while
+         preserving enough authority to clear the mixed paper-course walls. -->
+    <arg name="fluid_3d_w_max" default="0.9"/>
+    <!-- Command slew limits keep the recomputed 3-D field from producing
+         abrupt velocity steps.  Horizontal and vertical channels are
+         independent, matching the actuator speed caps above. -->
+    <arg name="fluid_3d_cmd_accel_xy_max" default="5.0"/>
+    <arg name="fluid_3d_cmd_accel_z_max" default="2.5"/>
+    <arg name="fluid_3d_crossflow_tau" default="0.8"/>
+    <arg name="fluid_3d_crossflow_rate_max" default="1.0"/>
+    <arg name="fluid_3d_k_n" default="1.0"/>
+    <arg name="fluid_3d_k_n_z_ratio" default="0.0"/>
+    <arg name="fluid_use_regression" default="true"/>
+    <arg name="fluid_use_coarse" default="true"/>
+    <arg name="fluid_use_fine" default="true"/>
+    <arg name="fluid_3d_crossflow_ratio" default="0.5"/>
+    <arg name="fluid_3d_homing_in_track" default="true"/>
+    <arg name="fluid_3d_freeze_streamline" default="false"/>
+    <!-- Temporarily disable the final CBF safety projection for A/B testing;
+         GVF/potential-flow avoidance and the actuator speed caps remain active. -->
+    <arg name="cbf_gain" default="0.0"/>
+    <arg name="fluid_3d_floor_band" default="0.30"/>
+    <!-- CG stopping rule for the harmonic solve. Iterations scale as O(1/h), so
+         these trade directly against fluid_grid_resolution; see gvf.h. -->
+    <arg name="fluid_bypass_offset" default="3.0"/>
+    <!-- 3D 放宽到 3e-5:phi 只被消费为方向(atan2/归一化),3D 网格上 1e-5 的
+         额外迭代纯付 barrier 开销(耗时旋钮阶梯第一档,见计划) -->
+    <arg name="fluid_cg_tolerance" default="3e-5"/>
+    <arg name="fluid_cg_max_iterations" default="200"/>
+    <!-- Nested levels: coarse spans fluid_window_* at the inflation scale, fine
+         re-solves the near field at fluid_grid_resolution_ inside it. See gvf.h. -->
+    <arg name="fluid_coarse_grid_resolution" default="0.30"/>
+    <arg name="fluid_fine_forward_size" default="6.0"/>
+    <arg name="fluid_fine_lateral_size" default="6.0"/>
+
+    <arg name="v_max" value="2.0"/>
+    <arg name="a_max" value="2.5"/>
+
+    <!-- Xbox joystick input: left stick controls world-frame X/Y velocity. -->
+    <arg name="joy_device" default="/dev/input/js0" />
+    <arg name="joy_name" default="" />
+    <arg name="forward_sign" default="1.0" />
+    <arg name="lateral_sign" default="1.0" />
+    <!-- Planar intent speed ceiling [m/s], wired to the joystick mapping and
+         the planner-side clamps; override with max_speed:=5.0. -->
+    <arg name="max_speed" default="3.0" />
+    <!-- Scripted benchmark runs feed /joy via joy_trace_replay.py; set false there so a real
+         attached controller doesn't race the trace on the same topic. -->
+    <arg name="enable_joy_node" default="true" />
+    <arg name="human_input_enable" default="true" />
+    <include file="$(find human_input_sim)/launch/xbox_input.launch">
+        <arg name="joy_device" value="$(arg joy_device)" />
+        <arg name="joy_name" value="$(arg joy_name)" />
+        <arg name="forward_sign" value="$(arg forward_sign)" />
+        <arg name="lateral_sign" value="$(arg lateral_sign)" />
+        <arg name="intent_topic" value="/human_intent" />
+        <arg name="max_speed" value="$(arg max_speed)" />
+        <arg name="enable_joy_node" value="$(arg enable_joy_node)" />
+    </include>
+
+  <node name="formation_planning" pkg="fluid" type="formation_planning" output="screen">
+        <!-- Plan Manager -->
+        <param name="gvf/cloud_topic"      type="string" value="/sim/local_map" />
+        <param name="gvf/odom_topic"       type="string" value="/sim/odom" />
+        <param name="gvf/cmd_topic"        type="string" value="/position_cmd" />
+        <param name="gvf/human_input_enable" value="$(arg human_input_enable)" />
+        <param name="gvf/human_intent_topic" value="/human_intent" />
+        <param name="gvf/human_intent_timeout" value="$(arg human_intent_timeout)" />
+        <param name="gvf/human_intent_max_speed" value="$(arg max_speed)" />
+        <!-- Local ESDF harmonic stream-function guidance. Keep these explicit so the
+             benchmark's rosparam snapshot is sufficient to reproduce an avoidance run. -->
+        <param name="gvf/fluid_cruise_z" value="$(arg fluid_cruise_z)" />
+        <param name="gvf/fluid_window_forward_size" value="$(arg fluid_window_forward_size)" />
+        <param name="gvf/fluid_window_lateral_size" value="$(arg fluid_window_lateral_size)" />
+        <param name="gvf/fluid_window_rear_margin" value="$(arg fluid_window_rear_margin)" />
+        <param name="gvf/fluid_grid_resolution" value="$(arg fluid_grid_resolution)" />
+        <param name="gvf/fluid_cg_tolerance" value="$(arg fluid_cg_tolerance)" />
+        <param name="gvf/fluid_cg_max_iterations" value="$(arg fluid_cg_max_iterations)" />
+        <param name="gvf/fluid_coarse_grid_resolution" value="$(arg fluid_coarse_grid_resolution)" />
+        <param name="gvf/fluid_fine_forward_size" value="$(arg fluid_fine_forward_size)" />
+        <param name="gvf/fluid_fine_lateral_size" value="$(arg fluid_fine_lateral_size)" />
+        <param name="gvf/fluid_d_s" value="$(arg fluid_d_s)" />
+        <!-- Keep the original clearance-speed ramp: fluid_d_drag also sets
+             the velocity law's full-speed distance, so enlarging it slows
+             the average transit speed through every obstacle encounter. -->
+        <param name="gvf/fluid_d_drag" value="0.60" />
+        <param name="gvf/fluid_d_turn" value="0.90" />
+        <param name="gvf/fluid_d_look" value="2.50" />
+        <param name="gvf/fluid_delta_theta_max_rad" value="0.6" />
+        <param name="gvf/fluid_conv_gate_margin" value="1.0" />
+        <param name="gvf/fluid_conv_length" value="1.5" />
+        <param name="gvf/fluid_bypass_offset" value="$(arg fluid_bypass_offset)" />
+        <param name="gvf/fluid_default_bias_sign" value="1.0" />
+        <param name="gvf/fluid_side_deadband" value="0.05" />
+        <param name="gvf/fluid_speed_floor" value="0.15" />
+        <param name="gvf/fluid_escape_tangent_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_outward_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_lo_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_hi_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_solid_weight" value="0.60" />
+        <param name="gvf/fluid_safety_escape_speed_ratio" value="0.25" />
+        <param name="gvf/fluid_resolve_period" value="0.10" />
+        <param name="gvf/fluid_cg_residual_acceptance" value="10.0" />
+        <param name="gvf/safety_min_clearance" value="0.30" />
+        <param name="gvf/safety_brake_decel" value="1.5" />
+        <!-- Closed-form CBF safety projection (paper VIII): k_h in s^-1,
+             applied as the last modification before publish -->
+        <param name="gvf/cbf_gain" value="$(arg cbf_gain)" />
+        <param name="gvf/safety_esdf_max_age" value="0.5" />
+        <!-- ===== 3D 势流求解(本 launch 的核心差异)===== -->
+        <param name="gvf/fluid_solver_3d" value="true" />
+        <!-- 细层 45k 胞(53x53x16 @0.15),粗层 ~10k(40x33x8 @0.30) -->
+        <param name="gvf/fluid_3d_fine_resolution" value="0.20" />
+        <param name="gvf/fluid_3d_grid_resolution_z" value="0.15" />
+        <param name="gvf/fluid_3d_coarse_resolution_z" value="0.30" />
+        <!-- 求解窗 z 跨度:自由带 [0.5, 2.3](上下各留 0.3 强制实心带) -->
+        <param name="gvf/fluid_3d_z_min" value="0.2" />
+        <param name="gvf/fluid_3d_z_max" value="2.6" />
+        <param name="gvf/fluid_3d_floor_band" value="$(arg fluid_3d_floor_band)" />
+        <param name="gvf/fluid_3d_ceil_band" value="0.30" />
+        <!-- ===== 3D 局部参考流线跟踪(paper IV):true nearest-segment
+             projection, v_nom = v_t*t_hat(p*) - k_n*e_perp (eq. 41) ===== -->
+        <param name="gvf/fluid_3d_k_n" value="$(arg fluid_3d_k_n)" />
+        <param name="gvf/fluid_3d_k_n_z_ratio" value="$(arg fluid_3d_k_n_z_ratio)" />
+        <param name="gvf/fluid_3d_streamline_fwd_len" value="4.0" />
+        <param name="gvf/fluid_3d_streamline_bwd_len" value="1.5" />
+        <param name="gvf/fluid_3d_streamline_ds" value="0.1" />
+        <param name="gvf/fluid_3d_streamline_max_disp" value="1.5" />
+        <param name="gvf/fluid_3d_streamline_degrade_cooldown" value="0.5" />
+        <!-- Ablation switches (nested-level + ray-regression), exposed so
+             BENCHMARK_GVF_EXTRA_ARGS can flip them per run without editing. -->
+        <param name="gvf/fluid_use_regression" value="$(arg fluid_use_regression)" />
+        <param name="gvf/fluid_use_coarse" value="$(arg fluid_use_coarse)" />
+        <param name="gvf/fluid_use_fine" value="$(arg fluid_use_fine)" />
+        <!-- 高度归航在 TRACK 内默认开启(3D benchmark 需要回到巡航高度)→
+             3D 的结论是 ISS/最终有界(d_v 有界);置 false 则 TRACK 为纯式(41),
+             精确指数衰减成立 -->
+        <param name="gvf/fluid_3d_homing_in_track" value="$(arg fluid_3d_homing_in_track)" />
+        <param name="gvf/fluid_3d_freeze_streamline" value="$(arg fluid_3d_freeze_streamline)" />
+        <param name="gvf/fluid_3d_d_v_max" value="1.0" />
+        <!-- 驻点横流闩锁:顶天立地宽墙前 Neumann 势流真驻停,由它破局选边。
+             闩锁只驱动 beta_des;beta 一阶滤波(有界速率)后进 u*(paper VII.C) -->
+        <param name="gvf/fluid_3d_crossflow_ratio" value="$(arg fluid_3d_crossflow_ratio)" />
+        <param name="gvf/fluid_3d_crossflow_tau" value="$(arg fluid_3d_crossflow_tau)" />
+        <param name="gvf/fluid_3d_crossflow_rate_max" value="$(arg fluid_3d_crossflow_rate_max)" />
+        <param name="gvf/fluid_3d_stall_speed_ratio" value="0.35" />
+        <!-- 垂直进展否决:场在举升/下潜(|w|>此值)时不算驻停——爬向洞口途中
+             误触发横流会把机体拖离本要穿过的洞(pillar_3d_course 实测) -->
+        <param name="gvf/fluid_3d_stall_w_veto" value="0.25" />
+        <param name="gvf/fluid_3d_stall_release_ratio" value="0.6" />
+        <param name="gvf/fluid_3d_stall_clearance" value="1.2" />
+        <param name="gvf/fluid_3d_stall_probe" value="1.2" />
+        <param name="gvf/fluid_3d_stall_latch_time" value="0.4" />
+        <param name="gvf/fluid_3d_stall_release_time" value="0.8" />
+        <!-- 高度归航:门控在 cruise_z 处采样的 clearance 上。0.6/1.0(实调):
+             0.9/1.5 时墙后 1-1.5m 内门只半开,势流尾流下卷把机体压到 z~0.4-0.6
+             并徘徊数秒(矮墙翻越场景实测);收紧后墙后更早满力归航。
+             开阔区 D_cruise≈1.0(显式地面封顶)→ gate=1 全开。 -->
+        <param name="gvf/fluid_3d_alt_gain" value="$(arg fluid_3d_alt_gain)" />
+        <param name="gvf/fluid_3d_vertical_preview_len" value="$(arg fluid_3d_vertical_preview_len)" />
+        <param name="gvf/fluid_3d_vertical_preview_clearance" value="$(arg fluid_3d_vertical_preview_clearance)" />
+        <param name="gvf/fluid_3d_vertical_preview_rate" value="$(arg fluid_3d_vertical_preview_rate)" />
+        <param name="gvf/fluid_3d_alt_rate_max" value="0.4" />
+        <param name="gvf/fluid_3d_alt_gate_lo" value="0.6" />
+        <param name="gvf/fluid_3d_alt_gate_hi" value="1.0" />
+        <!-- 分轴指令钳(manager 侧):水平由 human_intent_max_speed(2m/s) 限制，
+             垂直由此参数单独限制；SO3 z 速度伺服停 w 后滑行≈0.49*w -->
+        <param name="gvf/fluid_3d_w_max" value="$(arg fluid_3d_w_max)" />
+        <param name="gvf/fluid_3d_cmd_accel_xy_max" value="$(arg fluid_3d_cmd_accel_xy_max)" />
+        <param name="gvf/fluid_3d_cmd_accel_z_max" value="$(arg fluid_3d_cmd_accel_z_max)" />
+
+        <!-- vel_max/speed_max: GVF 与 cmd_pos 的速度上限 -->
+        <param name="gvf/cmd/vel_max" value="$(arg max_speed)" />
+        <param name="gvf/odom_vel_est_window" value="0.3" />
+        <param name="gvf/odom_vel_lpf_hz" value="2.0" />
+
+        <!-- SDF Map -->
+        <param name="sdf_map/resolution"   value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+
+        <param name="sdf_map/obstacles_inflation"     value="0.099" />
+        <param name="sdf_map/local_bound_inflate"    value="0.0"/>
+        <param name="sdf_map/local_map_margin" value="50"/>
+        <param name="sdf_map/ground_height"        value="-0.01"/>
+        <param name="sdf_map/enable_manual_map" value="true" />
+        <param name="sdf_map/manual_click_direct" value="true" />
+        <param name="sdf_map/manual_obstacle_radius" value="0.35" />
+        <param name="sdf_map/manual_obstacle_height" value="3.4" />
+        <param name="sdf_map/manual_obstacle_inflate" value="0.10" />
+        <param name="sdf_map/manual_boundary_padding" value="0.10" />
+        <param name="sdf_map/manual_boundary_z_min" value="0.0" />
+        <param name="sdf_map/manual_boundary_z_max" value="3.4" />
+        <param name="sdf_map/manual_map_file" value="$(find fluid)/config/manual_obstacles_test_gvf_3d.txt" />
+        <param name="sdf_map/manual_map_auto_load" value="true" />
+        <param name="sdf_map/manual_map_auto_save" value="true" />
+
+        <!-- depth filter -->
+        <param name="sdf_map/use_depth_filter" value="true"/>
+        <param name="sdf_map/depth_filter_tolerance" value="0.15"/>
+        <param name="sdf_map/depth_filter_maxdist"   value="5.0"/>
+        <param name="sdf_map/depth_filter_mindist"   value="0.2"/>
+        <param name="sdf_map/depth_filter_margin"    value="2"/>
+        <param name="sdf_map/k_depth_scaling_factor" value="1000.0"/>
+        <param name="sdf_map/skip_pixel" value="2"/>
+        <!-- local fusion -->
+        <param name="sdf_map/p_hit"  value="0.65"/>
+        <param name="sdf_map/p_miss" value="0.35"/>
+        <param name="sdf_map/p_min"  value="0.12"/>
+        <param name="sdf_map/p_max"  value="0.90"/>
+        <param name="sdf_map/p_occ"  value="0.80"/>
+        <param name="sdf_map/min_ray_length" value="0.5"/>
+        <param name="sdf_map/max_ray_length" value="4.5"/>
+        <param name="sdf_map/esdf_slice_height" value="0.3"/>
+        <param name="sdf_map/visualization_truncate_height"   value="3.39"/>
+        <!-- 必须满足 floor((ceil-ground)/res) <= nz-1:3.4 -> 34 <= 34 合法。
+             2.5m 地图的 2.5 会得到 25 > 24,越界别名写(见文件头注释)。 -->
+        <param name="sdf_map/virtual_ceil_height"   value="3.4"/>
+        <param name="sdf_map/show_occ_time"  value="false"/>
+        <param name="sdf_map/show_esdf_time" value="false"/>
+        <param name="sdf_map/pose_type"     value="2"/>
+        <param name="sdf_map/frame_id"      value="world"/>
+        <param name="sdf_map/buffer_refresh_period" value="3.0" />
+    </node>
+
+    <node pkg="map_generator" type="local_sensing" name="map_generator" output="screen">
+        <param name="sdf_map/resolution" value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+        <param name="fluid_window_forward_size" value="$(arg fluid_window_forward_size)" />
+        <param name="fluid_window_lateral_size" value="$(arg fluid_window_lateral_size)" />
+        <param name="fluid_window_rear_margin" value="$(arg fluid_window_rear_margin)" />
+        <param name="occlusion_culling" value="$(arg occlusion_culling)" />
+        <param name="human_intent_topic" value="/human_intent" />
+    </node>
+</launch>

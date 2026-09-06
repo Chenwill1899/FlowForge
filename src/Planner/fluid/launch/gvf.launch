@@ -1,0 +1,172 @@
+<launch>
+    <!-- 实机飞行 launch：人机意图 -> 2D/3D 流体引导。 -->
+    <arg name="drone_id" default="1" />
+    <arg name="init_x" default="0.0" />
+    <arg name="init_y" default="0.0" />
+    <arg name="init_z" default="1.0" />
+    <!-- Planning  parameters-->
+    <arg name="map_size_x_" value="50.0"/>
+    <arg name="map_size_y_" value="50.0"/>
+    <arg name="map_size_z_" value=" 3.85"/>
+
+    <arg name="local_update_range_x" value="5.0"/>
+    <arg name="local_update_range_y" value="5.0"/>
+    <arg name="local_update_range_z" value="2.05"/>
+
+    <!-- 实机默认 3D 势流引导；改 2D 则置 false -->
+    <arg name="fluid_solver_3d" default="true"/>
+    <arg name="v_max" value="2.5"/>
+    <arg name="a_max" value="3.5"/>
+
+  <node name="formation_planning" pkg="fluid" type="formation_planning" output="screen">
+
+        <!-- Plan Manager -->
+        <param name="gvf/cloud_topic"      type="string" value="/drone_1_cloud_registered" />
+        <param name="gvf/odom_topic"       type="string" value="/drone_1_visual_slam/odom" />
+        <param name="gvf/cmd_topic"       type="string" value="/drone_1_planning/pos_cmd" />
+        <!-- 人机意图流体引导 -->
+        <param name="gvf/human_input_enable" value="true" />
+        <param name="gvf/human_intent_topic" value="/human_intent" />
+        <param name="gvf/human_intent_timeout" value="0.5" />
+        <param name="gvf/human_intent_max_speed" value="$(arg v_max)" />
+        <param name="gvf/fluid_solver_3d" value="$(arg fluid_solver_3d)" />
+
+        <!-- 流体引导参数（2D/3D 共享） -->
+        <param name="gvf/fluid_cruise_z" value="1.0" />
+        <param name="gvf/fluid_window_forward_size" value="12.0" />
+        <param name="gvf/fluid_window_lateral_size" value="10.0" />
+        <param name="gvf/fluid_window_rear_margin" value="0.30" />
+        <param name="gvf/fluid_grid_resolution" value="0.10" />
+        <param name="gvf/fluid_cg_tolerance" value="1e-5" />
+        <param name="gvf/fluid_cg_max_iterations" value="200" />
+        <param name="gvf/fluid_cg_residual_acceptance" value="10.0" />
+        <param name="gvf/fluid_coarse_grid_resolution" value="0.30" />
+        <param name="gvf/fluid_fine_forward_size" value="6.0" />
+        <param name="gvf/fluid_fine_lateral_size" value="6.0" />
+        <param name="gvf/fluid_use_coarse" value="true" />
+        <param name="gvf/fluid_use_fine" value="true" />
+        <param name="gvf/fluid_d_s" value="0.30" />
+        <param name="gvf/fluid_d_drag" value="0.60" />
+        <param name="gvf/fluid_d_turn" value="0.90" />
+        <param name="gvf/fluid_d_look" value="2.50" />
+        <param name="gvf/fluid_delta_theta_max_rad" value="0.6" />
+        <param name="gvf/fluid_conv_gate_margin" value="1.0" />
+        <param name="gvf/fluid_conv_length" value="1.5" />
+        <param name="gvf/fluid_bypass_offset" value="3.0" />
+        <param name="gvf/fluid_default_bias_sign" value="1.0" />
+        <param name="gvf/fluid_side_deadband" value="0.05" />
+        <param name="gvf/fluid_speed_floor" value="0.15" />
+        <param name="gvf/fluid_escape_tangent_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_outward_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_lo_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_hi_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_solid_weight" value="0.60" />
+        <param name="gvf/fluid_safety_escape_speed_ratio" value="0.25" />
+        <param name="gvf/fluid_resolve_period" value="0.10" />
+        <param name="gvf/fluid_psi_error_gain" value="1.0" />
+        <param name="gvf/fluid_side_match_centroid_dist" value="1.0" />
+        <param name="gvf/fluid_side_latch_ttl" value="2.0" />
+        <param name="gvf/fluid_side_match_lateral_tol" value="0.35" />
+        <param name="gvf/fluid_side_match_forward_tol" value="0.35" />
+
+        <!-- 安全监督 + CBF -->
+        <param name="gvf/safety_min_clearance" value="0.30" />
+        <param name="gvf/safety_brake_decel" value="1.5" />
+        <param name="gvf/cbf_gain" value="1.5" />
+        <param name="gvf/safety_esdf_max_age" value="0.5" />
+
+        <!-- 3D 参数组 -->
+        <param name="gvf/fluid_3d_fine_resolution" value="0.20" />
+        <param name="gvf/fluid_3d_grid_resolution_z" value="0.15" />
+        <param name="gvf/fluid_3d_coarse_resolution_z" value="0.30" />
+        <param name="gvf/fluid_3d_z_min" value="0.2" />
+        <param name="gvf/fluid_3d_z_max" value="3.4" />
+        <param name="gvf/fluid_3d_floor_band" value="0.30" />
+        <param name="gvf/fluid_3d_ceil_band" value="0.30" />
+        <param name="gvf/fluid_3d_k_n" value="1.0" />
+        <param name="gvf/fluid_3d_k_n_z_ratio" value="0.0" />
+        <param name="gvf/fluid_3d_streamline_fwd_len" value="4.0" />
+        <param name="gvf/fluid_3d_streamline_bwd_len" value="1.5" />
+        <param name="gvf/fluid_3d_streamline_ds" value="0.1" />
+        <param name="gvf/fluid_3d_streamline_max_disp" value="1.5" />
+        <param name="gvf/fluid_3d_streamline_degrade_cooldown" value="0.5" />
+        <param name="gvf/fluid_3d_homing_in_track" value="true" />
+        <param name="gvf/fluid_3d_freeze_streamline" value="false" />
+        <param name="gvf/fluid_3d_d_v_max" value="1.0" />
+        <param name="gvf/fluid_3d_crossflow_ratio" value="0.5" />
+        <param name="gvf/fluid_3d_crossflow_tau" value="0.8" />
+        <param name="gvf/fluid_3d_crossflow_rate_max" value="1.0" />
+        <param name="gvf/fluid_3d_stall_speed_ratio" value="0.35" />
+        <param name="gvf/fluid_3d_stall_w_veto" value="0.25" />
+        <param name="gvf/fluid_3d_stall_release_ratio" value="0.6" />
+        <param name="gvf/fluid_3d_stall_clearance" value="1.2" />
+        <param name="gvf/fluid_3d_stall_probe" value="1.2" />
+        <param name="gvf/fluid_3d_stall_latch_time" value="0.4" />
+        <param name="gvf/fluid_3d_stall_release_time" value="0.8" />
+        <param name="gvf/fluid_3d_alt_gain" value="0.8" />
+        <param name="gvf/fluid_3d_alt_rate_max" value="0.4" />
+        <param name="gvf/fluid_3d_alt_gate_lo" value="0.6" />
+        <param name="gvf/fluid_3d_alt_gate_hi" value="1.0" />
+        <param name="gvf/fluid_3d_vertical_preview_len" value="3.0" />
+        <param name="gvf/fluid_3d_vertical_preview_clearance" value="0.45" />
+        <param name="gvf/fluid_3d_vertical_preview_rate" value="0.6" />
+        <param name="gvf/fluid_3d_w_max" value="1.2" />
+        <param name="gvf/fluid_3d_cmd_accel_xy_max" value="4.0" />
+        <param name="gvf/fluid_3d_cmd_accel_z_max" value="2.5" />
+
+        <param name="gvf/cmd/vel_max" value="$(arg v_max)" />
+        <param name="gvf/odom_vel_est_window" value="0.3" />
+        <param name="gvf/odom_vel_lpf_hz" value="2.0" />
+
+        <!-- SDF Map -->
+        <param name="sdf_map/resolution"   value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+
+        <param name="sdf_map/obstacles_inflation"     value="0.099" />
+        <param name="sdf_map/local_bound_inflate"    value="0.0"/>
+        <param name="sdf_map/local_map_margin" value="50"/>
+        <param name="sdf_map/ground_height"        value="-0.01"/>
+
+        <!-- depth filter -->
+        <param name="sdf_map/use_depth_filter" value="true"/>
+        <param name="sdf_map/depth_filter_tolerance" value="0.15"/>
+        <param name="sdf_map/depth_filter_maxdist"   value="5.0"/>
+        <param name="sdf_map/depth_filter_mindist"   value="0.2"/>
+        <param name="sdf_map/depth_filter_margin"    value="2"/>
+        <param name="sdf_map/k_depth_scaling_factor" value="1000.0"/>
+        <param name="sdf_map/skip_pixel" value="2"/>
+        <!-- local fusion -->
+        <param name="sdf_map/p_hit"  value="0.65"/>
+        <param name="sdf_map/p_miss" value="0.35"/>
+        <param name="sdf_map/p_min"  value="0.12"/>
+        <param name="sdf_map/p_max"  value="0.90"/>
+        <param name="sdf_map/p_occ"  value="0.80"/>
+        <param name="sdf_map/min_ray_length" value="0.5"/>
+        <param name="sdf_map/max_ray_length" value="4.5"/>
+        <param name="sdf_map/esdf_slice_height" value="0.3"/>
+        <param name="sdf_map/visualization_truncate_height"   value="2.49"/>
+        <param name="sdf_map/virtual_ceil_height"   value="2.5"/>
+        <param name="sdf_map/show_occ_time"  value="false"/>
+        <param name="sdf_map/show_esdf_time" value="false"/>
+        <param name="sdf_map/pose_type"     value="2"/>
+        <param name="sdf_map/frame_id"      value="world"/>
+        <param name="sdf_map/buffer_refresh_period" value="5.0" />
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" required="true" args="-d $(find so3_quadrotor_simulator)/config/experiment.rviz" />
+
+    <include file="$(find drone_control)/launch/px4ctrl.launch">
+        <arg name="drone_id" value="$(arg drone_id)"/>
+        <arg name="init_x" value="$(arg init_x)"/>
+        <arg name="init_y" value="$(arg init_y)"/>
+        <arg name="init_z" value="$(arg init_z)"/>
+    </include>
+
+
+</launch>

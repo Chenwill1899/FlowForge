@@ -1,0 +1,196 @@
+<launch>
+    <!-- 差速车(Scout级)专用规划器配置：在 test_gvf.launch (无人机点质量配置) 的基础上，
+         对齐 ISF-GVF_Car 里差速车配置(gvf_car_control.launch)的车体安全裕度/速度上限：
+         车体宽度通过 sdf_map/obstacles_inflation 表达(规划层按膨胀后的障碍物避开车体)，
+         GVF 流体引导本身是点质量模型。 -->
+    <arg name="drone_id" default="1" />
+    <arg name="init_x" default="0.0" />
+    <arg name="init_y" default="0.0" />
+    <arg name="init_z" default="0.0" />
+    <!-- Planning  parameters-->
+    <arg name="map_size_x_" default="50.0"/>
+    <arg name="map_size_y_" default="50.0"/>
+    <arg name="map_size_z_" default="2.5"/>
+
+    <arg name="local_update_range_x" default="13.0"/>
+    <arg name="local_update_range_y" default="13.0"/>
+    <arg name="local_update_range_z" default="2.5"/>
+    <!-- 本地 ESDF 谐波流函数引导(与 test_gvf.launch 四旋翼配置一致)。
+         粗/细两层：粗层在 fluid_window_* 全域按 fluid_coarse_grid_resolution 求解，
+         细层在 fluid_fine_* 近场按 fluid_grid_resolution 重解，并以粗解为 Dirichlet 边界。
+         fluid_bypass_offset 决定流线绕障时被掰开的幅度。 -->
+    <arg name="fluid_window_forward_size" default="12.0"/>
+    <arg name="fluid_window_lateral_size" default="10.0"/>
+    <arg name="fluid_window_rear_margin" default="3.0"/>
+    <arg name="fluid_grid_resolution" default="0.10"/>
+    <arg name="fluid_bypass_offset" default="1.0"/>
+    <arg name="fluid_d_s" default="0.15"/>
+    <arg name="fluid_cg_tolerance" default="1e-5"/>
+    <arg name="fluid_use_regression" default="true"/>
+    <arg name="fluid_cg_max_iterations" default="200"/>
+    <arg name="fluid_coarse_grid_resolution" default="0.30"/>
+    <arg name="fluid_fine_forward_size" default="6.0"/>
+    <arg name="fluid_fine_lateral_size" default="6.0"/>
+    <arg name="fluid_use_coarse" default="true"/>
+    <arg name="fluid_use_fine" default="true"/>
+
+    <!-- 差速车平台上限：max_v=1.15 m/s (见 diff_drive_benchmark_sim.launch)。
+         规划器速度/加速度上限略低于平台上限，避免 gvf_cmd_bridge 长期饱和。
+         a_max 与 v_max 保持约1.7倍的比例（此前 1.2/0.7≈1.71），提速后仍留出相近的制动/转弯裕度。 -->
+    <arg name="v_max" default="1.0"/>
+    <arg name="a_max" default="1.7"/>
+
+    <!-- 车体安全裕度：通过 SDF 障碍膨胀表达(对齐 ISF-GVF_Car/gvf_car_control.launch) -->
+    <arg name="sdf_obstacles_inflation" default="0.15"/>
+    <arg name="cbf_gain" default="1.5"/>
+
+    <!-- Xbox joystick input: left stick controls world-frame X/Y velocity. -->
+    <arg name="joy_device" default="/dev/input/js0" />
+    <arg name="joy_name" default="" />
+    <arg name="forward_sign" default="1.0" />
+    <arg name="lateral_sign" default="1.0" />
+    <!-- Scripted benchmark runs feed /joy via joy_trace_replay.py; set false there so a real
+         attached controller doesn't race the trace on the same topic. -->
+    <arg name="enable_joy_node" default="true" />
+    <include file="$(find human_input_sim)/launch/xbox_input.launch">
+        <arg name="joy_device" value="$(arg joy_device)" />
+        <arg name="joy_name" value="$(arg joy_name)" />
+        <arg name="forward_sign" value="$(arg forward_sign)" />
+        <arg name="lateral_sign" value="$(arg lateral_sign)" />
+        <arg name="intent_topic" value="/human_intent" />
+        <arg name="max_speed" value="$(arg v_max)" />
+        <arg name="enable_joy_node" value="$(arg enable_joy_node)" />
+    </include>
+
+  <node name="formation_planning" pkg="fluid" type="formation_planning" output="screen">
+        <!-- Plan Manager -->
+        <param name="gvf/cloud_topic"      type="string" value="/sim/local_map" />
+        <param name="gvf/odom_topic"       type="string" value="/sim/odom" />
+        <param name="gvf/cmd_topic"        type="string" value="/position_cmd" />
+        <param name="gvf/human_input_enable" value="true" />
+        <param name="gvf/human_intent_topic" value="/human_intent" />
+        <param name="gvf/human_intent_timeout" value="0.5" />
+        <param name="gvf/human_intent_max_speed" value="$(arg v_max)" />
+
+        <!-- 本地 ESDF 谐波流函数引导(与 test_gvf.launch 四旋翼配置一致，保持显式
+             以保证 benchmark 的 rosparam 快照足以复现一次避障运行)。注意 fluid_cruise_z
+             必须取障碍物完整可见的切片高度：差速车贴地(z=0)时若取 0.0，ESDF 切片落在
+             车体/地面膨胀边界上，会把 clearance 读成 0 触发 hard stop；取 1.0 与四旋翼
+             一致，2D 谐波场只看 XY(整高墙在所有高度都可测到)。 -->
+        <param name="gvf/fluid_cruise_z" value="1.0" />
+        <param name="gvf/fluid_window_forward_size" value="$(arg fluid_window_forward_size)" />
+        <param name="gvf/fluid_window_lateral_size" value="$(arg fluid_window_lateral_size)" />
+        <param name="gvf/fluid_window_rear_margin" value="$(arg fluid_window_rear_margin)" />
+        <param name="gvf/fluid_grid_resolution" value="$(arg fluid_grid_resolution)" />
+        <param name="gvf/fluid_cg_tolerance" value="$(arg fluid_cg_tolerance)" />
+        <param name="gvf/fluid_use_regression" value="$(arg fluid_use_regression)" />
+        <param name="gvf/fluid_cg_max_iterations" value="$(arg fluid_cg_max_iterations)" />
+        <param name="gvf/fluid_coarse_grid_resolution" value="$(arg fluid_coarse_grid_resolution)" />
+        <param name="gvf/fluid_fine_forward_size" value="$(arg fluid_fine_forward_size)" />
+        <param name="gvf/fluid_fine_lateral_size" value="$(arg fluid_fine_lateral_size)" />
+        <param name="gvf/fluid_use_coarse" value="$(arg fluid_use_coarse)" />
+        <param name="gvf/fluid_use_fine" value="$(arg fluid_use_fine)" />
+        <param name="gvf/fluid_d_s" value="$(arg fluid_d_s)" />
+        <param name="gvf/fluid_d_drag" value="0.60" />
+        <param name="gvf/fluid_d_turn" value="0.90" />
+        <param name="gvf/fluid_d_look" value="2.50" />
+        <param name="gvf/fluid_delta_theta_max_rad" value="0.6" />
+        <param name="gvf/fluid_conv_gate_margin" value="1.0" />
+        <param name="gvf/fluid_conv_length" value="1.5" />
+        <param name="gvf/fluid_bypass_offset" value="$(arg fluid_bypass_offset)" />
+        <param name="gvf/fluid_default_bias_sign" value="1.0" />
+        <param name="gvf/fluid_side_deadband" value="0.05" />
+        <param name="gvf/fluid_speed_floor" value="0.15" />
+        <param name="gvf/fluid_escape_tangent_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_outward_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_lo_ratio" value="0.15" />
+        <param name="gvf/fluid_escape_stall_hi_ratio" value="0.50" />
+        <param name="gvf/fluid_escape_solid_weight" value="0.60" />
+        <param name="gvf/fluid_safety_escape_speed_ratio" value="0.25" />
+        <param name="gvf/fluid_resolve_period" value="0.10" />
+        <param name="gvf/fluid_cg_residual_acceptance" value="10.0" />
+        <!-- 2D 流函数误差控制(论文 eq. 29): k_psi in s^-1 -->
+        <param name="gvf/fluid_psi_error_gain" value="1.0" />
+        <!-- 2D 绕行侧闩锁: 窗口重建间保持 side_k -->
+        <param name="gvf/fluid_side_match_centroid_dist" value="1.0" />
+        <param name="gvf/fluid_side_latch_ttl" value="2.0" />
+        <param name="gvf/fluid_side_match_lateral_tol" value="0.35" />
+        <param name="gvf/fluid_side_match_forward_tol" value="0.35" />
+
+        <!-- 安全监督 + CBF -->
+        <param name="gvf/safety_min_clearance" value="0.30" />
+        <param name="gvf/safety_brake_decel" value="1.5" />
+        <param name="gvf/cbf_gain" value="$(arg cbf_gain)" />
+        <param name="gvf/safety_esdf_max_age" value="0.5" />
+
+        <param name="gvf/cmd/vel_max" value="$(arg v_max)" />
+        <param name="gvf/odom_vel_est_window" value="0.3" />
+        <param name="gvf/odom_vel_lpf_hz" value="2.0" />
+
+        <!-- SDF Map -->
+        <param name="sdf_map/resolution"   value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+
+        <!-- 对齐 ISF-GVF_Car 差速车配置(gvf_car_control.launch: sdf_map/obstacles_inflation=0.25)：
+             无人机原值 0.099 远小于车体半宽(约0.35m)，会让规划轨迹本身贴着障碍物走。 -->
+         <param name="sdf_map/obstacles_inflation"     value="$(arg sdf_obstacles_inflation)" />
+        <param name="sdf_map/local_bound_inflate"    value="0.0"/>
+        <param name="sdf_map/local_map_margin" value="50"/>
+        <param name="sdf_map/ground_height"        value="-0.01"/>
+        <param name="sdf_map/enable_manual_map" value="true" />
+        <param name="sdf_map/manual_click_direct" value="true" />
+        <param name="sdf_map/manual_obstacle_radius" value="0.35" />
+        <param name="sdf_map/manual_obstacle_height" value="2.5" />
+        <param name="sdf_map/manual_obstacle_inflate" value="0.10" />
+        <param name="sdf_map/manual_boundary_padding" value="0.10" />
+        <param name="sdf_map/manual_boundary_z_min" value="0.0" />
+        <param name="sdf_map/manual_boundary_z_max" value="2.5" />
+        <param name="sdf_map/manual_map_file" value="$(find fluid)/config/manual_obstacles_test_gvf.txt" />
+        <param name="sdf_map/manual_map_auto_load" value="true" />
+        <param name="sdf_map/manual_map_auto_save" value="true" />
+
+        <!-- depth filter -->
+        <param name="sdf_map/use_depth_filter" value="true"/>
+        <param name="sdf_map/depth_filter_tolerance" value="0.15"/>
+        <param name="sdf_map/depth_filter_maxdist"   value="5.0"/>
+        <param name="sdf_map/depth_filter_mindist"   value="0.2"/>
+        <param name="sdf_map/depth_filter_margin"    value="2"/>
+        <param name="sdf_map/k_depth_scaling_factor" value="1000.0"/>
+        <param name="sdf_map/skip_pixel" value="2"/>
+        <!-- local fusion -->
+        <param name="sdf_map/p_hit"  value="0.65"/>
+        <param name="sdf_map/p_miss" value="0.35"/>
+        <param name="sdf_map/p_min"  value="0.12"/>
+        <param name="sdf_map/p_max"  value="0.90"/>
+        <param name="sdf_map/p_occ"  value="0.80"/>
+        <param name="sdf_map/min_ray_length" value="0.5"/>
+        <param name="sdf_map/max_ray_length" value="4.5"/>
+        <param name="sdf_map/esdf_slice_height" value="0.3"/>
+        <param name="sdf_map/visualization_truncate_height"   value="2.49"/>
+        <param name="sdf_map/virtual_ceil_height"   value="2.5"/>
+        <param name="sdf_map/show_occ_time"  value="false"/>
+        <param name="sdf_map/show_esdf_time" value="false"/>
+        <param name="sdf_map/pose_type"     value="2"/>
+        <param name="sdf_map/frame_id"      value="world"/>
+        <param name="sdf_map/buffer_refresh_period" value="3.0" />
+    </node>
+
+    <node pkg="map_generator" type="local_sensing" name="map_generator" output="screen">
+        <param name="sdf_map/resolution" value="0.1" />
+        <param name="sdf_map/map_size_x"   value="$(arg map_size_x_)" />
+        <param name="sdf_map/map_size_y"   value="$(arg map_size_y_)" />
+        <param name="sdf_map/map_size_z"   value="$(arg map_size_z_)" />
+        <param name="sdf_map/local_update_range_x"  value="$(arg local_update_range_x)" />
+        <param name="sdf_map/local_update_range_y"  value="$(arg local_update_range_y)" />
+        <param name="sdf_map/local_update_range_z"  value="$(arg local_update_range_z)" />
+        <param name="fluid_window_forward_size" value="$(arg fluid_window_forward_size)" />
+        <param name="fluid_window_lateral_size" value="$(arg fluid_window_lateral_size)" />
+        <param name="fluid_window_rear_margin" value="$(arg fluid_window_rear_margin)" />
+    </node>
+</launch>

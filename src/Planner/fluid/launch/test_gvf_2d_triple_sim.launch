@@ -1,0 +1,127 @@
+<launch>
+    <!-- Sim side of the 2D triple-planner ablation: three simulators + three
+         SO3 controllers in namespaces r1/r2/r3, one global latched map
+         publisher. The planner side (test_gvf_2d_triple_planners.launch) is
+         launched by the runner AFTER these controllers are hovering, so the
+         boot-time free-fall window cannot lock a low altitude. -->
+    <arg name="map" default="$(find map_generator)/resource/office2.pcd"/>
+    <arg name="init_x" default="0.0"/>
+    <arg name="init_y" default="0.0"/>
+    <arg name="init_z" default="1.0"/>
+    <arg name="enable_rviz" default="true"/>
+
+    <!-- RViz on the VNC display: three colored odometry trails over the map. -->
+    <node if="$(arg enable_rviz)" name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find so3_quadrotor_simulator)/config/triple_ablation.rviz"/>
+
+    <!-- Static TF so RViz can resolve the odom frame "/simulator" against the
+         fixed frame "world" (the odom poses are world coordinates; the frame
+         label is inherited from the standard simulator). The standard flow's
+         odom_visualization node cannot be reused here: TF is global and three
+         copies would fight over the same world->base transform. -->
+    <node pkg="tf" type="static_transform_publisher" name="world_tf"
+          args="0 0 0 0 0 0 1 world /simulator 100"/>
+
+    <!-- One global map publisher for all three loops. -->
+    <node pkg="map_generator" name="map_pub" type="map_pub" output="screen"
+          args="$(arg map)"/>
+
+    <!-- ============================== r1: nested ============================== -->
+    <group ns="r1">
+        <node pkg="so3_quadrotor_simulator" type="quadrotor_simulator_so3"
+              name="quadrotor_simulator_so3" output="screen">
+            <param name="rate/odom" value="100.0"/>
+            <param name="simulator/init_state_x" value="$(arg init_x)"/>
+            <param name="simulator/init_state_y" value="$(arg init_y)"/>
+            <param name="simulator/init_state_z" value="$(arg init_z)"/>
+            <remap from="~odom" to="sim/odom"/>
+            <remap from="~cmd" to="so3_cmd"/>
+            <remap from="~imu" to="sim/imu"/>
+        </node>
+        <node pkg="nodelet" type="nodelet"
+              args="standalone so3_control/SO3ControlNodelet"
+              name="so3_control" required="true" output="screen">
+            <param name="so3_control/init_state_x" value="$(arg init_x)"/>
+            <param name="so3_control/init_state_y" value="$(arg init_y)"/>
+            <param name="so3_control/init_state_z" value="$(arg init_z)"/>
+            <remap from="~odom" to="sim/odom"/>
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~motors" to="motors"/>
+            <remap from="~corrections" to="corrections"/>
+            <remap from="~so3_cmd" to="so3_cmd"/>
+            <remap from="~imu" to="sim/imu"/>
+            <rosparam file="$(find so3_control)/config/gains_hummingbird.yaml"/>
+            <rosparam file="$(find so3_control)/config/corrections_hummingbird.yaml"/>
+            <param name="mass" value="0.98"/>
+            <param name="use_external_yaw" value="true"/>
+            <param name="gains/rot/z" value="1.0"/>
+            <param name="gains/ang/z" value="0.1"/>
+        </node>
+    </group>
+
+    <!-- =========================== r2: coarse-only =========================== -->
+    <group ns="r2">
+        <node pkg="so3_quadrotor_simulator" type="quadrotor_simulator_so3"
+              name="quadrotor_simulator_so3" output="screen">
+            <param name="rate/odom" value="100.0"/>
+            <param name="simulator/init_state_x" value="$(arg init_x)"/>
+            <param name="simulator/init_state_y" value="$(arg init_y)"/>
+            <param name="simulator/init_state_z" value="$(arg init_z)"/>
+            <remap from="~odom" to="sim/odom"/>
+            <remap from="~cmd" to="so3_cmd"/>
+            <remap from="~imu" to="sim/imu"/>
+        </node>
+        <node pkg="nodelet" type="nodelet"
+              args="standalone so3_control/SO3ControlNodelet"
+              name="so3_control" required="true" output="screen">
+            <param name="so3_control/init_state_x" value="$(arg init_x)"/>
+            <param name="so3_control/init_state_y" value="$(arg init_y)"/>
+            <param name="so3_control/init_state_z" value="$(arg init_z)"/>
+            <remap from="~odom" to="sim/odom"/>
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~motors" to="motors"/>
+            <remap from="~corrections" to="corrections"/>
+            <remap from="~so3_cmd" to="so3_cmd"/>
+            <remap from="~imu" to="sim/imu"/>
+            <rosparam file="$(find so3_control)/config/gains_hummingbird.yaml"/>
+            <rosparam file="$(find so3_control)/config/corrections_hummingbird.yaml"/>
+            <param name="mass" value="0.98"/>
+            <param name="use_external_yaw" value="true"/>
+            <param name="gains/rot/z" value="1.0"/>
+            <param name="gains/ang/z" value="0.1"/>
+        </node>
+    </group>
+
+    <!-- ============================ r3: fine-only ============================ -->
+    <group ns="r3">
+        <node pkg="so3_quadrotor_simulator" type="quadrotor_simulator_so3"
+              name="quadrotor_simulator_so3" output="screen">
+            <param name="rate/odom" value="100.0"/>
+            <param name="simulator/init_state_x" value="$(arg init_x)"/>
+            <param name="simulator/init_state_y" value="$(arg init_y)"/>
+            <param name="simulator/init_state_z" value="$(arg init_z)"/>
+            <remap from="~odom" to="sim/odom"/>
+            <remap from="~cmd" to="so3_cmd"/>
+            <remap from="~imu" to="sim/imu"/>
+        </node>
+        <node pkg="nodelet" type="nodelet"
+              args="standalone so3_control/SO3ControlNodelet"
+              name="so3_control" required="true" output="screen">
+            <param name="so3_control/init_state_x" value="$(arg init_x)"/>
+            <param name="so3_control/init_state_y" value="$(arg init_y)"/>
+            <param name="so3_control/init_state_z" value="$(arg init_z)"/>
+            <remap from="~odom" to="sim/odom"/>
+            <remap from="~position_cmd" to="position_cmd"/>
+            <remap from="~motors" to="motors"/>
+            <remap from="~corrections" to="corrections"/>
+            <remap from="~so3_cmd" to="so3_cmd"/>
+            <remap from="~imu" to="sim/imu"/>
+            <rosparam file="$(find so3_control)/config/gains_hummingbird.yaml"/>
+            <rosparam file="$(find so3_control)/config/corrections_hummingbird.yaml"/>
+            <param name="mass" value="0.98"/>
+            <param name="use_external_yaw" value="true"/>
+            <param name="gains/rot/z" value="1.0"/>
+            <param name="gains/ang/z" value="0.1"/>
+        </node>
+    </group>
+</launch>

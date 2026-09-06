@@ -1,0 +1,174 @@
+name: pillar_forest_mixed
+
+# A variant of the stock pillar forest (map_generator/resource/pillar.pcd)
+# for run_sim_paper.sh: a denser random pillar field (some tilted) plus the
+# five obstacle "species" from pillar_3d_course.yaml -- climb over a low
+# wall, dive under a beam, thread a windowed wall, dodge-and-hop a pillar
+# cluster, pass under a floating block -- but randomly placed and randomly
+# counted (not one fixed instance each at a fixed position), via
+# generate_planar_wall_pcd.py's expand_random(). Three of the five map
+# directly onto existing random-field primitives: `sills` (climb-over),
+# `overhangs` (dive-under / pass-under -- one primitive covers both: a wide
+# z_min range makes some instances force a real dive and others merely
+# pass overhead, see the z_min comment below), `window_walls` (thread). The
+# fourth, a full-height pillar flanked by two low pillars (dodge-and-hop),
+# is `pillar_clusters`, added to expand_random() alongside this scenario.
+# Every placement (including pillar_clusters, taken as one blocker) keeps
+# min_gap clearance from every other blocker, so the field stays flyable
+# regardless of how the RNG lands.
+#
+# corridor_y/corridor_jitter (below) put all five obstacle species -- but
+# NOT the background pillars/tilted_pillars -- on the robot's actual flight
+# line, so the crossing is guaranteed to encounter every species (order and
+# spacing along the crossing still random) instead of possibly missing some
+# off to one side of a merely-decorative random field.
+#
+# Orientation: authored in the schema's native frame -- obstacles/placement
+# region use x as the travel axis, matching pillar_3d_course.yaml -- then
+# swap_xy (see generate_planar_wall_pcd.py) transposes the whole scene so
+# the actual travel axis in the target world frame is y, matching the real
+# pillar.pcd arena (long axis ~27 m on y, ~14.5 m on x) and
+# run_sim_paper.sh's left-to-right (world +y -> -y) crossing.
+#
+# fluid_cruise_z must be 1.0 for this scenario (run_sim_paper.sh sets it):
+# sills/overhangs are sized relative to a 1.0 m cruise baseline, same as
+# pillar_3d_course.yaml -- at the launch's default 2.0 m cruise every sill
+# and most overhangs would already be cleared without the drone ever
+# needing to climb or dive.
+random:
+  seed: 20260811
+  point_spacing: 0.1
+  region: {x_min: -13.5, x_max: 13.5, y_min: -7.0, y_max: 7.0}
+  keepout:
+    - {x: 13.4, y: -1.0, radius: 1.5}  # run_sim_paper.sh spawn point
+  # run_sim_paper.sh spawns at pre-swap y=-1.0 (== final world x=-1.0) and
+  # pushes pure lateral (world y), so absent any dodging the flight stays on
+  # this line the whole crossing. 0.6 jitter is comfortably smaller than
+  # every corridor obstacle's own half-length/radius (>= 1.0), so coverage
+  # holds even with the ~1-2 m dodge drift observed in earlier full-forest
+  # runs.
+  corridor_y: -1.0
+  corridor_jitter: 0.6
+  # Keep transverse corridor obstacles visibly separate along the crossing.
+  # The two window walls remain centered within the 1.6 m opening around
+  # corridor_y, so the spawn line at y=-1.0 passes through both windows.
+  corridor_gap: 2.0
+  # Background pillars fill the sides of the course, but leave the nominal
+  # crossing line open so the vehicle can reach both window openings.
+  route_clearance: 0.8
+  # Keep both window centers on the robot's nominal transverse line. This is
+  # especially important for the second window: its opening must be the
+  # natural route, not an optional side channel.
+  window_centers_y: [-1.0, -1.0]
+  # The first generated window is the final window encountered on the route
+  # (the other is near the spawn side). Keep its opening centered while
+  # slanting the wall in the travel-height plane.
+  window_tilts_deg: [18.0, 0.0]
+  window_yaws_deg: [18.0, 0.0]
+  window_tilt_azimuth_deg: 0.0
+  # Native travel-axis positions. The last beam is close to the first window
+  # while retaining a clear passage between their footprints.
+  overhang_centers_x: [-11.2, -3.0, 6.5]
+  sill_centers_x: [-5.8, 3.0]
+  overhang_tilts_deg: [14.0, -18.0, 12.0]
+  overhang_yaws_deg: [-16.0, 20.0, -14.0]
+  overhang_tilt_azimuth_deg: 0.0
+  sill_tilts_deg: [-16.0, 20.0]
+  sill_yaws_deg: [15.0, -18.0]
+  side_obstacles:
+    bands: [[-7.0, -4.2], [2.2, 7.0]]
+    gap: 1.2
+    window_walls: {count_per_side: 1, half_length: [1.8, 2.6],
+                   window_width: 1.5, window_z: [1.0, 2.4],
+                   tilt_deg: [-20.0, 20.0], yaw_deg: [-30.0, 30.0]}
+    sills: {count_per_side: 2, half_length: [1.2, 2.2],
+            height: [0.7, 1.4], thickness: [0.2, 0.4],
+            tilt_deg: [-20.0, 20.0], yaw_deg: [-30.0, 30.0]}
+    overhangs: {count_per_side: 2, half_length: [1.0, 2.0],
+                z_min: [1.1, 1.7], depth: [0.5, 1.0], thickness: [0.3, 0.6],
+                tilt_deg: [-20.0, 20.0], yaw_deg: [-30.0, 30.0]}
+  sill_tilt_azimuth_deg: 0.0
+  min_gap: 1.4
+  z_base: 0.05
+  z_top: 3.35
+  # Background forest: straight + tilted pillars, doubled from the first
+  # cut of this scenario (was 8/4) so the field reads as dense as the
+  # original pillar.pcd even with five obstacle species also competing for
+  # placement slots.
+  pillars: {count: 16, radius: [0.25, 0.45], full_height_ratio: 0.7,
+            low_height: [1.4, 2.2]}
+  tilted_pillars: {count: 8, radius: [0.2, 0.32], tilt_deg: [12, 28]}
+  # climb-over: top sometimes above the 1.0 m cruise (forces a climb),
+  # sometimes below (just a bump in the field) -- pillar_3d_course.yaml's
+  # single instance was a fixed 1.2 m.
+  sills: {count: 2, height: [0.8, 1.5], half_length: [1.5, 2.8],
+          thickness: [0.2, 0.4]}
+  # Keep the underside above the 1.0 m cruise height so every beam has a
+  # clear underpass; the separated windows and sills provide the other 3D
+  # avoidance cases without trapping the crossing between two obstacles.
+  overhangs: {count: 3, z_min: [1.2, 1.6], depth: [0.6, 1.0],
+              half_length: [1.0, 2.2], thickness: [0.3, 0.6]}
+  # thread-a-window.
+  window_walls: {count: 2, half_length: [2.0, 3.0], window_width: 1.6,
+                 window_z: [0.75, 2.5]}
+  # dodge-and-hop: full-height center pillar + two low flanks.  The first
+  # cluster is the tall pillar nearest the map centre.  Since swap_xy maps
+  # native y to world x and native x to world y, the first cluster is shifted
+  # an extra 0.8 m along world -y (relative to the previous map) so there is
+  # more recovery distance after the y=3 m low wall.  The full three-pillar
+  # group moves rigidly, preserving its dodge-and-hop geometry.
+  pillar_clusters: {count: 2, center_radius: [0.5, 0.7],
+                    flank_radius: [0.4, 0.6], flank_offset: [1.5, 2.2],
+                    flank_height: [0.8, 1.2],
+                    center_x_offsets: [-1.3, 0.0],
+                    center_y_offsets: [0.9695070917210789, 0.0]}
+
+swap_xy: true
+
+# Additional foreground blockers make the first half of the crossing read as
+# an obstacle course instead of an empty approach. They sit on both sides of
+# the nominal line (native y=-1.0), leaving the two window openings clear.
+absolute_pillars:
+  - {center_x: 12.0, center_y: -3.4, radius: 0.32,
+     z_min: 0.0, z_max: 2.8, tilt_deg: [15.0, 15.0],
+     point_spacing: 0.1}
+  - {center_x: 10.7, center_y: 2.5, radius: 0.28,
+     z_min: 0.0, z_max: 2.2, tilt_deg: [18.0, 18.0],
+     point_spacing: 0.1}
+  - {center_x: 8.3, center_y: -3.2, radius: 0.36,
+     z_min: 0.0, z_max: 3.3, tilt_deg: [12.0, 12.0],
+     point_spacing: 0.1}
+  - {center_x: 7.8, center_y: 2.7, radius: 0.30,
+     z_min: 0.0, z_max: 1.9, tilt_deg: [20.0, 20.0],
+     point_spacing: 0.1}
+  - {center_x: 4.8, center_y: -3.0, radius: 0.30,
+     z_min: 0.0, z_max: 2.6, tilt_deg: [16.0, 16.0],
+     point_spacing: 0.1}
+  - {center_x: 3.9, center_y: 2.8, radius: 0.34,
+     z_min: 0.0, z_max: 2.4, tilt_deg: [14.0, 14.0],
+     point_spacing: 0.1}
+
+# Side forests fill the open areas without occupying the nominal crossing
+# strip (native y around corridor_y=-1.0). Random jitter and tilt keep these
+# from reading as a regular lattice.
+absolute_pillar_grid:
+  # With swap_xy, native y is world x.  Add a lightly randomized fill to
+  # the visually sparse world x~-2 / +2 side bands.  These stay clear of
+  # the world x=-1 crossing corridor, while varied
+  # height/radius/jitter and a small tilt make the fill read as natural.
+  - {x_min: -11.0, x_max: 11.0, y_min: -2.8, y_max: -2.0,
+     spacing: 2.8, jitter: 0.55, radius_min: 0.20, radius_max: 0.36,
+     z_min: 0.0, z_max: 3.3, full_height_ratio: 0.65,
+     tilt_deg: [4.0, 20.0], point_spacing: 0.1, seed: 20260814}
+  - {x_min: -11.0, x_max: 11.0, y_min: 1.6, y_max: 2.4,
+     spacing: 2.8, jitter: 0.55, radius_min: 0.20, radius_max: 0.36,
+     z_min: 0.0, z_max: 3.3, full_height_ratio: 0.65,
+     tilt_deg: [4.0, 20.0], point_spacing: 0.1, seed: 20260815}
+  - {x_min: -12.5, x_max: 12.5, y_min: -7.0, y_max: -5.0,
+     spacing: 3.8, jitter: 0.25, radius_min: 0.18, radius_max: 0.30,
+     z_min: 0.0, z_max: 3.3, full_height_ratio: 0.65,
+     tilt_deg: [0.0, 18.0], point_spacing: 0.1, seed: 20260812}
+  - {x_min: -12.5, x_max: 12.5, y_min: 3.0, y_max: 7.0,
+     spacing: 3.8, jitter: 0.25, radius_min: 0.18, radius_max: 0.30,
+     z_min: 0.0, z_max: 3.3, full_height_ratio: 0.65,
+     tilt_deg: [0.0, 18.0], point_spacing: 0.1, seed: 20260813}

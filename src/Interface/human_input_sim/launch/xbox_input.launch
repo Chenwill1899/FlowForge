@@ -1,0 +1,39 @@
+<launch>
+  <arg name="joy_device" default="/dev/input/js0" />
+  <arg name="joy_name" default="" />
+  <arg name="joy_topic" default="/joy" />
+  <arg name="intent_topic" default="/human_intent" />
+  <arg name="forward_sign" default="1.0" />
+  <arg name="lateral_sign" default="1.0" />
+  <arg name="intent_rate_hz" default="50.0" />
+  <arg name="joy_timeout" default="0.4" />
+  <arg name="max_speed" default="1.0" />
+  <!-- Scripted benchmark runs (joy_trace_replay.py) publish directly to $(arg joy_topic)
+       themselves; a real hardware joystick node publishing to the same topic races it, and
+       any idle/attached controller intermixes near-zero readings with the trace's commands.
+       Set false for those runs so joy_to_intent has a single, deterministic /joy source. -->
+  <arg name="enable_joy_node" default="true" />
+
+  <node if="$(arg enable_joy_node)" pkg="joy" type="joy_node" name="xbox_joy" output="screen">
+    <param name="dev" value="$(arg joy_device)" />
+    <param name="dev_name" value="$(arg joy_name)" />
+    <param name="deadzone" value="0.05" />
+    <param name="autorepeat_rate" value="50.0" />
+    <param name="coalesce_interval" value="0.001" />
+    <remap from="joy" to="$(arg joy_topic)" />
+  </node>
+
+  <node pkg="human_input_sim" type="joy_to_intent.py" name="joy_to_intent" output="screen">
+    <param name="joy_topic" value="$(arg joy_topic)" />
+    <param name="intent_topic" value="$(arg intent_topic)" />
+    <param name="frame_id" value="world" />
+    <param name="forward_axis" value="1" />
+    <param name="lateral_axis" value="0" />
+    <param name="forward_sign" value="$(arg forward_sign)" />
+    <param name="lateral_sign" value="$(arg lateral_sign)" />
+    <param name="deadzone" value="0.12" />
+    <param name="max_speed" value="$(arg max_speed)" />
+    <param name="intent_rate_hz" value="$(arg intent_rate_hz)" />
+    <param name="joy_timeout" value="$(arg joy_timeout)" />
+  </node>
+</launch>

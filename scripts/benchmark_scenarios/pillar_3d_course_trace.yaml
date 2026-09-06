@@ -1,0 +1,16 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Hold a full-speed +x intent long enough to traverse all five obstacles of
+# the pillar-sized 3D course (~23 m with slow-downs at each encounter) and
+# settle back at cruise height. Intent stays planar throughout. 20 s, not
+# longer: the SDF map ends at x=+25, and a finished run coasting on a longer
+# intent gets (correctly) frozen by the safety supervisor at the map edge,
+# which then reads as a spurious in-course stall.
+events:
+  - {at: 0.0, forward: 1.0, lateral: 0.0}
+  - {at: 20.0, forward: 0.0, lateral: 0.0}

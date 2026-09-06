@@ -1,0 +1,21 @@
+<launch>
+  <!-- Scene geometry. All dimensions are in metres. -->
+  <arg name="resolution" default="0.1" />
+  <arg name="wall_thickness" default="0.3" />
+  <arg name="pillar_width" default="0.6" />
+  <arg name="base_z" default="-1.0" />
+  <arg name="height" default="4.0" />
+  <arg name="output_dir" default="$(find map_generator)/resource" />
+
+  <node pkg="map_generator" type="scene_editor" name="scene_editor" output="screen">
+    <param name="resolution" type="double" value="$(arg resolution)" />
+    <param name="wall_thickness" type="double" value="$(arg wall_thickness)" />
+    <param name="pillar_width" type="double" value="$(arg pillar_width)" />
+    <param name="base_z" type="double" value="$(arg base_z)" />
+    <param name="height" type="double" value="$(arg height)" />
+    <param name="output_dir" type="string" value="$(arg output_dir)" />
+  </node>
+
+  <node pkg="rviz" type="rviz" name="scene_editor_rviz" required="true"
+        args="-d $(find map_generator)/config/scene_editor.rviz" />
+</launch>

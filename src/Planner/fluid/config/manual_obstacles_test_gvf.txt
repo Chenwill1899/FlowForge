@@ -1,0 +1,1 @@
+# manual obstacle centers: x y z

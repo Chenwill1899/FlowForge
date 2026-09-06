@@ -1,0 +1,57 @@
+<launch>
+
+  <arg name="drone_id" default="0"/>
+  <arg name="use_autoloc_init" default="false"/>
+  <arg name="init_x" default="0.0"/>
+  <arg name="init_y" default="0.0"/>
+  <arg name="init_z" default="1.0"/>
+  <arg name="init_qx" default="0.0"/>
+  <arg name="init_qy" default="0.0"/>
+  <arg name="init_qz" default="0.0"/>
+  <arg name="init_qw" default="1.0"/>
+  
+  <node pkg="drone_control" type="px4ctrl" name="drone_$(arg drone_id)_px4ctrl_node" output="screen">
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="use_autoloc_init" value="$(arg use_autoloc_init)"/>
+    <param name="hover_height" type="double" value="$(arg init_z)"/>
+    <param name="stop_dist" type="double" value="1"/>
+    
+    <param name="max_vel" type="double" value="1.75"/>
+    <param name="max_beishu" type="double" value="1.5"/>
+    <param name="px" type="double" value="3.0"/>
+    <param name="dx" type="double" value="1.0"/>
+    <param name="py" type="double" value="3.7"/>
+    <param name="dy" type="double" value="1.7"/>
+    <param name="pz" type="double" value="3.0"/>
+    <param name="yaw_rate_gain" type="double" value="1.5"/>
+    
+    <param name="max_yaw_rate" type="double" value="100.0"/>
+    <param name="init_x" value="$(arg init_x)"/>
+    <param name="init_y" value="$(arg init_y)"/>
+    <param name="init_z" value="$(arg init_z)"/>
+    <remap from="position_cmd" to="drone_$(arg drone_id)_planning/pos_cmd"/>
+  </node>
+
+
+  <node pkg="drone_control" type="flight_manager" name="drone_$(arg drone_id)_flight_manager_node" output="screen">
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="use_autoloc_init" value="$(arg use_autoloc_init)"/>
+    <param name="init_x" value="$(arg init_x)"/>
+    <param name="init_y" value="$(arg init_y)"/>
+    <param name="init_z" value="$(arg init_z)"/>
+    <param name="init_qx" value="$(arg init_qx)"/>
+    <param name="init_qy" value="$(arg init_qy)"/>
+    <param name="init_qz" value="$(arg init_qz)"/>
+    <param name="init_qw" value="$(arg init_qw)"/>
+  </node> 
+
+  <node name="state_relay" pkg="topic_tools" type="relay" args="/drone_state /drone_$(arg drone_id)_state" output="screen"/>
+
+    <!-- 双向同步: /control <-> /drone_$(arg drone_id)_control (防止循环传播) -->
+  <node name="bidirectional_control_relay" pkg="drone_control" type="bidirectional_relay.py" output="screen">
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="control_topic" value="/control"/>
+    <param name="drone_control_topic" value="/drone_$(arg drone_id)_control"/>
+  </node>
+  
+</launch>

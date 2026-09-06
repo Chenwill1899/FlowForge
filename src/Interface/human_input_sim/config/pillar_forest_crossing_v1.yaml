@@ -1,0 +1,22 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Left-to-right crossing of the stock pillar forest (map_generator/resource/pillar.pcd)
+# for run_sim_paper.sh. "forward" is world +x, "lateral" is world +y (see
+# joy_to_intent.py: twist.linear.x/y). In the main (near-top-down) RViz window this map
+# renders left-right wide (~27 m, world y) and up-down narrow (~14.5 m, world x), with
+# world +y toward screen-left -- confirmed empirically: a pure forward (+x) push showed
+# up on screen as bottom-to-top motion, not left-to-right. So a screen left-to-right
+# crossing is a pure lateral push toward -y, not a forward push.
+# Start (-1.0, 13.4, cruise z) sits 0.83 m clear of the nearest pillar, just inside the
+# arena's y~13.66 edge (screen-left); holding lateral=-1.0 drives toward y~-13.74
+# (screen-right), a ~27 m crossing. Hold the stick for 20 s; together with the
+# 2 s post-hold and benchmark startup/shutdown buffers this produces a roughly
+# 25 s recorded run while still leaving time to negotiate the 3D obstacles.
+events:
+  - {at: 0.0, forward: 0.0, lateral: -1.0}
+  - {at: 20.0, forward: 0.0, lateral: 0.0}
