@@ -101,41 +101,89 @@ rosbag play --clock /absolute/path/to/benchmark.bag
 并非离线重新计算的膨胀栅格。
 这些 B2 专用点云显示还会按 `/Odometry` 当前高度裁剪，隐藏其下方的点。
 
-### 3D Benchmark（run_sim_paper.sh）
+### 统一 Benchmark（无人机 / 差速车）
 
-一条命令跑完整闭环：roscore + 四旋翼仿真 + `test_gvf_3d.launch` 3D 规划器 +
-离散控制序列回放 + rosbag 录制，结束后自动出图出指标：
+从宿主机执行同一个入口；脚本自动进入本项目的 ROS Noetic Docker 容器，
+完成 roscore、仿真、规划、意图回放、rosbag 录制和指标绘图：
 
 ```bash
-cd GVF-Nav
-./scripts/run_sim_paper.sh
-# 无干扰默认:SIM_PAPER_DISTURBANCE_MODE 默认 none
-# 扰动实验(世界系力脉冲):SIM_PAPER_DISTURBANCE_MODE=noise ./scripts/run_sim_paper.sh
+./scripts/run_sim_paper.sh 3d    # 无人机；不传参数也默认 3d
+./scripts/run_sim_paper.sh 2d    # 差速车（Scout 级运动学仿真）
+
+# 无界面运行
+BENCHMARK_ENABLE_RVIZ=false ./scripts/run_sim_paper.sh 2d
+
+# 3D 世界系力脉冲 / 固定参考流线实验
+SIM_PAPER_DISTURBANCE_MODE=noise ./scripts/run_sim_paper.sh 3d
+SIM_PAPER_EXPERIMENT_MODE=fixed SIM_PAPER_DISTURBANCE_MODE=noise ./scripts/run_sim_paper.sh 3d
 ```
 
-默认场景为 `scripts/benchmark_scenarios/pillar_forest_mixed.yaml`（五类 3D 障碍
-混合柱林：翻越矮墙、钻底悬空梁、穿墙洞、柱阵混合跨越、悬浮块，一次连续飞行覆盖），
-地图每次运行前由 `scripts/generate_planar_wall_pcd.py` 重新生成到
-`logs/sim_paper_assets/`，不提交静态 pcd。换场景/模式用环境变量而不是复制脚本：
+| 模式 | 仿真 / 规划 | 默认场景和输入 |
+| --- | --- | --- |
+| `3d` | `so3_quadrotor_simulator/simulator.launch` + `fluid/test_gvf_3d.launch` | `pillar_forest_mixed.yaml` 生成混合 3D 柱林，`pillar_forest_crossing_v1.yaml` 持续横穿 |
+| `2d` | `diff_drive_gvf_sim/diff_drive_benchmark_sim.launch` + `fluid/test_gvf_diff_drive.launch` | 已有 `pillar.pcd` 柱林，`diff_drive_v1.yaml` 往返转向轨迹；从原点朝 +Y 出发 |
 
-- `SIM_PAPER_SCENARIO` — 场景 yaml（默认 pillar_forest_mixed）
-- `SIM_PAPER_DISTURBANCE_MODE` — `none`（默认）/`pulse`/`noise`（力脉冲）
-- `SIM_PAPER_EXPERIMENT_MODE` — `online`（默认）/`fixed`（固定参考实验）
-- `BENCHMARK_TRACE_FILE` — 离散控制意图 yaml（默认 pillar_forest_crossing_v1）
-- `BENCHMARK_SIM_EXTRA_ARGS="init_y:=1.5"` 等 — 起点/速度等单次覆盖
+2D 通过 `gvf_cmd_bridge` 把 `PositionCommand` 转为差速车的 `/cmd_vel`，
+使用差速车已有的速度、转向和障碍膨胀配置。3D 的力脉冲和固定参考实验参数
+不适用于差速车，传给 `2d` 时会报错。同一工作空间一次只运行一个 benchmark。
 
-每次运行会在 `logs/sim_paper/<时间戳>/` 下生成：
+**容器配置和编译**
 
-- `metadata.txt`：运行时间、代码提交、退出状态
-- `raw/`：roscore/simulator/gvf/replay 进程日志 + `benchmark.bag`
-- `data/`：`actual_trajectory.csv`（实际位置速度）、`planned_command.csv`（规划指令）、
-  `human_intent.csv`（离散控制意图）等 CSV 时序
-- `config/`：本次 trace + 解析后的 rosparams 快照
-- `benchmark_plot.png`：XY 轨迹、速度曲线、实际速度与离散意图对比、关键指标摘要
-- `metrics.json`：关键指标数值
+`docker/` 与 `scripts/ros1_docker.sh` 参考旧 `ros1_docker` 的 Noetic + VNC 构造，
+依赖配置已随本项目保存，无需旧 GVF-Nav 目录。宿主机需要 Docker 及当前用户的访问权限。
+首次运行会自动构建镜像、启动容器并编译；修改 C++ 后需重新执行 `compile`：
 
-该脚本自动启动并退出 ROS Master、仿真器、GVF 规划器和 baseline 回放，不需要再手动开
-多个终端。实体手柄不是该 benchmark 的输入源；手柄节点的等待提示可以忽略。
+```bash
+./scripts/ros1_docker.sh build       # 构建镜像（首次自动执行）
+./scripts/ros1_docker.sh compile     # 容器内 catkin_make，默认 4 个编译任务
+./scripts/ros1_docker.sh shell       # 进入已配置 ROS 的交互终端
+./scripts/ros1_docker.sh logs        # 查看桌面启动日志
+./scripts/ros1_docker.sh stop        # 停止本项目容器
+```
+
+默认镜像 `flowforge:noetic-vnc`、容器 `flowforge-noetic`，使用独立 Docker 网络，
+不占用宿主机的 ROS Master。RViz 在容器桌面显示，用 VNC 客户端连接
+`127.0.0.1:5902`（仅绑定宿主机回环地址，无密码）；默认软件渲染，不依赖 GPU 或手柄设备。
+项目按宿主机的相同绝对路径挂载，生成结果直接保存在项目目录。
+
+可通过 `FLOWFORGE_IMAGE`、`FLOWFORGE_DOCKER_CONTAINER`、`FLOWFORGE_VNC_PORT`、
+`FLOWFORGE_BUILD_JOBS` 调整镜像、容器名、VNC 端口和编译并行数。
+更新 Dockerfile 后重新 `build`，再删除已停止的本项目容器并运行 `start`，以使用新镜像；
+删除容器不会删除宿主机项目和实验结果。
+
+**实验覆盖参数**（从宿主机自动传入容器）
+
+- `SIM_PAPER_SCENARIO`：自定义场景 YAML；3D 默认混合柱林，2D 不设置时使用已有柱林 PCD。
+- `BENCHMARK_MAP`：自定义 PCD；2D 同时指定场景 YAML 时优先生成场景地图。
+- `BENCHMARK_TRACE_FILE`：自定义意图 YAML，最后一条事件必须释放摇杆。
+- `BENCHMARK_SIM_EXTRA_ARGS`：仿真 launch 参数，如 `"init_x:=0.0 init_y:=1.5"`。
+- `BENCHMARK_GVF_EXTRA_ARGS`：规划 launch 参数；3D 如 `"fluid_cruise_z:=1.0 max_speed:=3.0"`，2D 如 `"v_max:=0.8"`。
+- `SIM_PAPER_DISTURBANCE_MODE`：仅 3D，`none`（默认）/`pulse`/`noise`。
+- `SIM_PAPER_EXPERIMENT_MODE`：仅 3D，`online`（默认）/`fixed`；fixed 使用专用地图和 trace。
+- `BENCHMARK_LOG_DIR`：自定义结果目录。
+
+地图和 trace 路径应位于挂载的项目目录内；换场景时需同步设置匹配的起点和意图。
+额外 launch 参数以空格分隔 `name:=value`，会替换该模式默认的额外参数串。
+
+每次运行会在 `logs/sim_paper/<3d|2d>/<时间戳>/` 下生成：
+
+- `metadata.txt`：模式、仿真/规划入口、运行时间、代码提交、退出和绘图状态。
+- `benchmark.bag`：里程计、地图、意图、规划指令、`/cmd_vel`、TF 和诊断话题。
+- `raw/`：roscore、仿真器、规划器、回放、录制与绘图进程日志。
+- `data/`：实际轨迹、规划指令、意图等 CSV 时序。
+- `config/`：本次地图、场景、trace、规划器参数及完整 ROS 参数快照。
+- `benchmark_plot.png`、`metrics.json`、`summary.txt`：轨迹和速度图、数值指标与摘要。
+
+所有结果和 catkin 构建产物均被 Git 忽略。旧的独立 baseline runner 已合并进此入口。
+宿主机 Ctrl+C/TERM 会转发到容器运行进程，等待录包关闭和 ROS 清理后返回非零状态。
+
+默认场景完整运行后，可在容器终端中检查产物、非零运动、松杆停车和实际平台类型：
+
+```bash
+python3 scripts/tests/check_benchmark_run.py 2d logs/sim_paper/2d/<时间戳>
+python3 scripts/tests/check_benchmark_run.py 3d logs/sim_paper/3d/<时间戳>
+```
+
 
 ### 3D 势流引导原理与调参
 
