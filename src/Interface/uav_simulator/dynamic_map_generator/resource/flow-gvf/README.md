@@ -28,7 +28,7 @@ Load one in the baseline benchmark with:
 
 ```bash
 BENCHMARK_MAP="$PWD/src/Interface/uav_simulator/dynamic_map_generator/resource/flow-gvf/far_offset_door.pcd" \
-  scripts/run_baseline_benchmark.sh
+  scripts/run_sim_paper.sh 2d
 ```
 
 The PCD coordinates are published unchanged in the `world` frame by

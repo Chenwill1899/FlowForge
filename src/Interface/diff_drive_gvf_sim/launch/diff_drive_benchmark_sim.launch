@@ -2,8 +2,8 @@
   <!-- Platform side of a GVF benchmark run for the differential-drive (Scout-class) robot:
        kinematic simulator + PositionCommand->Twist bridge + base map, mirroring
        so3_quadrotor_simulator's simulator.launch so it can be swapped in under
-       scripts/run_baseline_benchmark.sh. The GVF planner (fluid/test_gvf.launch) is
-       launched unchanged by the caller. -->
+       scripts/run_sim_paper.sh 2d. The differential-drive planner (fluid/test_gvf_diff_drive.launch)
+       is launched by the caller. -->
   <arg name="init_x" default="0.0"/>
   <arg name="init_y" default="0.0"/>
   <arg name="init_yaw" default="0.0"/>
@@ -65,7 +65,7 @@
 
   <!-- Reuse the quadrotor's two RViz layouts so platform comparisons differ only in
        robot/odometry/executed-path sources, not in maps, displays, tools, or views.
-       The copies display the reference Scout 2 STL marker and disable the old URDF model. -->
+       Use the existing primitive car MarkerArray: this repository does not ship Scout mesh assets. -->
   <arg name="global_rviz_config"
        default="$(find diff_drive_gvf_sim)/config/benchmark_swarm.rviz"/>
   <arg name="fpv_rviz_config"
@@ -79,14 +79,12 @@
 
     <node pkg="rviz" type="rviz" name="diff_drive_benchmark_rviz"
           args="-d $(arg global_rviz_config)" output="screen" required="false">
-      <remap from="/odom_visualization/robot" to="/gvf_car/robot_marker"/>
       <remap from="/odom_visualization/path" to="/gvf_car/executed_path"/>
       <remap from="/drone_1_visual_slam/odom" to="/sim/odom"/>
     </node>
 
     <node pkg="rviz" type="rviz" name="diff_drive_benchmark_fpv_rviz"
           args="-d $(arg fpv_rviz_config)" output="screen" required="false">
-      <remap from="/odom_visualization/robot" to="/gvf_car/robot_marker"/>
       <remap from="/odom_visualization/path" to="/gvf_car/executed_path"/>
       <remap from="/drone_1_visual_slam/odom" to="/sim/odom"/>
     </node>

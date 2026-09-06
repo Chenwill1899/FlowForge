@@ -1,0 +1,14 @@
+publish_rate_hz: 20.0
+axis_count: 8
+button_count: 11
+forward_axis: 1
+lateral_axis: 0
+post_hold_sec: 2.0
+
+# Screen left -> right is world -Y, matching the 3D paper crossing.
+# Start (2, 13.4, 0), yaw=-pi/2. Keep one world-frame forward intent;
+# the planner and differential-drive bridge supply all obstacle steering.
+# At the default 1 m/s cap, allow 40 s for the ~27 m crossing and turns.
+events:
+  - {at: 0.0, forward: 0.0, lateral: -1.0}
+  - {at: 40.0, forward: 0.0, lateral: 0.0}

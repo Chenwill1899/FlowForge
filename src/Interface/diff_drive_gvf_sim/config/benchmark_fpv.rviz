@@ -310,12 +310,12 @@ Visualization Manager:
       Update Interval: 0
       Value: false
       Visual Enabled: false
-    - Class: rviz/Marker
+    - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /odom_visualization/robot
+      Marker Topic: /gvf_car/robot_model
       Name: Marker
       Namespaces:
-        car_model_compound: true
+        car_model: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker

@@ -1,7 +1,7 @@
 <launch>
   <!-- Platform side of a GVF benchmark run for the B2 quadruped: kinematic simulator +
        PositionCommand->Twist bridge + base map, mirroring so3_quadrotor_simulator's
-       simulator.launch so it can be swapped in under scripts/run_baseline_benchmark.sh.
+       simulator.launch for standalone B2 simulation.
        The GVF planner (fluid/test_gvf.launch) is launched unchanged by the caller. -->
   <arg name="init_x" default="0.0"/>
   <arg name="init_y" default="0.0"/>
