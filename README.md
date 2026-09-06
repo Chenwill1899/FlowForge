@@ -121,7 +121,10 @@ SIM_PAPER_EXPERIMENT_MODE=fixed SIM_PAPER_DISTURBANCE_MODE=noise ./scripts/run_s
 | 模式 | 仿真 / 规划 | 默认场景和输入 |
 | --- | --- | --- |
 | `3d` | `so3_quadrotor_simulator/simulator.launch` + `fluid/test_gvf_3d.launch` | `pillar_forest_mixed.yaml` 生成混合 3D 柱林，`pillar_forest_crossing_v1.yaml` 持续横穿 |
-| `2d` | `diff_drive_gvf_sim/diff_drive_benchmark_sim.launch` + `fluid/test_gvf_diff_drive.launch` | 已有 `pillar.pcd` 柱林，`diff_drive_v1.yaml` 往返转向轨迹；从原点朝 +Y 出发 |
+| `2d` | `diff_drive_gvf_sim/diff_drive_benchmark_sim.launch` + `fluid/test_gvf_diff_drive.launch` | 已有 `pillar.pcd` 柱林，`diff_drive_crossing_v1.yaml` 单向横穿；从 `(2, 13.4)` 朝 -Y 出发，以当前 1 m/s 上限持续前进 40 秒后松杆 |
+
+两个模式的画面左→右均对应世界坐标 -Y。2D 的意图始终为固定的 `(0, -1, 0)` m/s，
+不回放转弯或往返指令，绕障转向由规划器与差速桥接自动产生。
 
 2D 通过 `gvf_cmd_bridge` 把 `PositionCommand` 转为差速车的 `/cmd_vel`，
 使用差速车已有的速度、转向和障碍膨胀配置。3D 的力脉冲和固定参考实验参数

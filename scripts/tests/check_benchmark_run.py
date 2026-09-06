@@ -42,6 +42,15 @@ def check(mode, run):
         for topic in ("/sim/odom", "/human_intent", "/position_cmd", "/sim/local_map"):
             assert topic in topics and topics[topic].message_count > 20, topic
         if mode == "2d":
+            # The default experiment crosses the entire pillar arena with one
+            # fixed human intent. Steering must come from obstacle avoidance.
+            if Path(metadata["trace_file"]).name == "diff_drive_crossing_v1.yaml":
+                active = [row for row in data["human_intent"] if row["speed"] > 0.1]
+                assert all(abs(row["vx"]) < 1e-6 and abs(row["vy"] + 1.0) < 1e-6
+                           and abs(row["vz"]) < 1e-6 for row in active), "intent changed direction"
+                actual = data["actual_trajectory"]
+                assert abs(actual[0]["x"] - 2.0) < 0.1 and actual[0]["y"] > 13.0, "not at the crossing spawn"
+                assert actual[-1]["y"] < -13.5, "did not cross the pillar arena"
             assert max(abs(row["z"]) for row in data["actual_trajectory"]) < 1e-6
             commands = [msg for _, msg, _ in bag.read_messages(topics=["/cmd_vel"])]
             assert len(commands) > 20, "missing differential-drive bridge output"

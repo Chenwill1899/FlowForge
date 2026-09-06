@@ -7,7 +7,7 @@ usage() {
   cat <<EOF
 Usage: $0 [3d|2d]
   3d  Quadrotor, mixed 3D pillar course (default)
-  2d  Differential-drive robot, pillar map and diff_drive_v1 intent trace
+  2d  Differential-drive robot, pillar map and constant left-to-right intent
 
 Runs in the project's ROS Noetic Docker container; builds on first use.
 Set BENCHMARK_ENABLE_RVIZ=false for headless runs.
@@ -47,9 +47,10 @@ if [[ "${MODE}" == 2d ]]; then
   export BENCHMARK_SIM_LAUNCH_FILE=diff_drive_benchmark_sim.launch
   export BENCHMARK_SIM_WAIT_NODE=/diff_drive_sim
   export BENCHMARK_GVF_LAUNCH_FILE=test_gvf_diff_drive.launch
-  export BENCHMARK_TRACE_FILE="${BENCHMARK_TRACE_FILE:-${ROOT}/src/Interface/human_input_sim/config/diff_drive_v1.yaml}"
+  # Use a clear screen-left spawn in the stock pillar map and the same -Y intent as 3D.
+  export BENCHMARK_TRACE_FILE="${BENCHMARK_TRACE_FILE:-${ROOT}/src/Interface/human_input_sim/config/diff_drive_crossing_v1.yaml}"
   export BENCHMARK_MAP="${BENCHMARK_MAP:-${ROOT}/src/Interface/uav_simulator/dynamic_map_generator/resource/pillar.pcd}"
-  export BENCHMARK_SIM_EXTRA_ARGS="${BENCHMARK_SIM_EXTRA_ARGS:-init_x:=0.0 init_y:=0.0 init_yaw:=1.5707963267948966}"
+  export BENCHMARK_SIM_EXTRA_ARGS="${BENCHMARK_SIM_EXTRA_ARGS:-init_x:=2.0 init_y:=13.4 init_yaw:=-1.5707963267948966}"
   if [[ -n "${SIM_PAPER_SCENARIO:-}" ]]; then
     asset_dir="${BENCHMARK_GENERATED_ASSET_DIR:-${ROOT}/logs/sim_paper_assets}"
     export BENCHMARK_MAP="${asset_dir}/$(basename "${SIM_PAPER_SCENARIO%.yaml}").pcd"
