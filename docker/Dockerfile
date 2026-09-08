@@ -55,12 +55,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git ros-noetic-robot-state-publisher \
  && rm -rf /var/lib/apt/lists/*
 
-COPY entrypoint.sh /usr/local/bin/flowforge-entrypoint
-RUN chmod 0755 /usr/local/bin/flowforge-entrypoint
-ENV FLOWFORGE_CONTAINER=1 \
+COPY entrypoint.sh /usr/local/bin/flore-entrypoint
+RUN chmod 0755 /usr/local/bin/flore-entrypoint
+ENV FLORE_CONTAINER=1 \
     DISPLAY=:1 \
     LIBGL_ALWAYS_SOFTWARE=1 \
     QT_X11_NO_MITSHM=1 \
     DISABLE_ROS1_EOL_WARNINGS=1
 USER ros
-ENTRYPOINT ["/usr/local/bin/flowforge-entrypoint"]
+ENTRYPOINT ["/usr/local/bin/flore-entrypoint"]
