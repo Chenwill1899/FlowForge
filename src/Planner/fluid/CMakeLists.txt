@@ -42,6 +42,7 @@ add_library(fluid_gvf_planner
    src/fluid_guidance.cpp
    src/fluid_solver_2d.cpp
    src/fluid_solver_3d.cpp
+   src/flow_coordinates_3d.cpp
 )
 target_link_libraries(fluid_gvf_planner ${catkin_LIBRARIES})
 
@@ -61,3 +62,10 @@ fluid_gvf_planner
  ${catkin_LIBRARIES}
 )
 
+
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_gtest(flow_coordinates_3d_test test/flow_coordinates_3d_test.cpp)
+  if(TARGET flow_coordinates_3d_test)
+    target_link_libraries(flow_coordinates_3d_test fluid_gvf_planner ${catkin_LIBRARIES} gtest_main)
+  endif()
+endif()

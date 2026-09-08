@@ -10,8 +10,9 @@
 //          escape net, ray-homing regression.
 //   3D  -- pressure-projection potential flow (Neumann obstacle walls),
 //          nested coarse+fine solve, stagnation crossflow latch, local
-//          reference-streamline tracking (nearest-segment projection,
-//          eq. 41), altitude homing, vertical-lane preview, escape net.
+//          section-return transverse coordinates and pseudoinverse feedback,
+//          altitude homing, vertical-lane preview, escape net. Nearest-segment
+//          projection selects the next interval seed and supplies legacy diagnostics.
 //
 // The numerical kernels live in fluid_solver_2d / fluid_solver_3d (separate
 // translation units, gtest-able).  This module is the guidance POLICY that
@@ -30,12 +31,14 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <vector>
 
 #include <Eigen/Dense>
 
 #include <fluid/fluid_solver_2d.h>
 #include <fluid/fluid_solver_3d.h>
+#include <fluid/flow_coordinates_3d.h>
 
 namespace FLAG_Race {
 namespace fluid {
@@ -231,6 +234,18 @@ public:
                                   double& projection_clearance,
                                   double& d_v) const;
 
+    struct FlowErrorDiagnostics3D {
+        fluid3d::CoordinateResult3D coordinate;
+        fluid3d::FlowControlResult3D control;
+        double control_compute_ms = 0.0;
+        Eigen::Vector3d anchor = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+        Eigen::Vector3d query = anchor;
+        uint64_t field_version = 0;
+        double gradient_relative_error = std::numeric_limits<double>::quiet_NaN();
+        double compute_ms = 0.0;
+    };
+    const FlowErrorDiagnostics3D& flowErrorDiagnostics3D() const { return flow_error_diag_; }
+
     // ---- visualization snapshots ----
     const FluidVis2D& vis2D() const { return vis2d_; }
     const FluidVis3D& vis3D() const { return vis3d_; }
@@ -288,6 +303,10 @@ private:
 
     // ---- 3D state ----
     fluid3d::Grid3D fluid3d_field_grid_;
+    fluid3d::FlowCoordinates3D flow_coordinates_;
+    std::shared_ptr<const fluid3d::CoordinateGrid3D> flow_coordinate_grid_;
+    FlowErrorDiagnostics3D flow_error_diag_;
+    uint64_t flow_field_version_ = 0;
     std::vector<double> fluid3d_Ux_, fluid3d_Uy_, fluid3d_Uz_;
     std::vector<double> fluid3d_phi_;
     bool fluid3d_field_valid_ = false;
