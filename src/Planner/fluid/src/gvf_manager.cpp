@@ -281,6 +281,27 @@ namespace FLAG_Race
             e_perp.x(), e_perp.y(), e_perp.z(), eta_xy, eta_3d,
             streamline_clearance_min, projection_clearance, d_v
         };
+        const auto& flow = swarmParticlesManager[0].gvf_->fluid_.flowErrorDiagnostics3D();
+        const auto& error = flow.coordinate;
+        msg.data.insert(msg.data.end(), {
+            error.valid() ? 1.0 : 0.0, static_cast<double>(error.status),
+            static_cast<double>(flow.field_version),
+            flow.anchor.x(), flow.anchor.y(), flow.anchor.z(),
+            flow.query.x(), flow.query.y(), flow.query.z(),
+            error.eta.x(), error.eta.y(), error.eta.norm(),
+            error.section_residual, error.arc_length, static_cast<double>(error.steps),
+            flow.gradient_relative_error, flow.compute_ms
+        });
+        const auto& control = flow.control;
+        const Eigen::Vector3d delta = flow_final_velocity_ - control.velocity;
+        msg.data.insert(msg.data.end(), {
+            control.valid() ? 1.0 : 0.0, static_cast<double>(control.status),
+            control.minimum_sigma, control.condition, control.fd_difference,
+            control.ju_residual, control.inverse_residual, control.decay_residual,
+            control.velocity.x(), control.velocity.y(), control.velocity.z(),
+            flow_final_velocity_.x(), flow_final_velocity_.y(), flow_final_velocity_.z(),
+            delta.x(), delta.y(), delta.z(), flow.control_compute_ms
+        });
         field_diagnostics_pub_.publish(msg);
     }
 
@@ -845,6 +866,7 @@ namespace FLAG_Race
             // above is included: at h <= 0 the projection may only add an
             // outward recovery component.
             applyCbfFinal(pos, v_cmd, final_horizontal_cap);
+            flow_final_velocity_ = v_cmd;
 
             quadrotor_msgs::PositionCommand cmd;
             cmd.header.stamp = final_now;

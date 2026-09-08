@@ -28,6 +28,23 @@ FIELD_DIAGNOSTIC_FIELDS = [
     "e_perp_x", "e_perp_y", "e_perp_z", "eta_xy", "eta_3d",
     "streamline_clearance_min_m", "projection_clearance_m", "d_v_mps"
 ]
+# Preserve the original geometric-error columns and append flow coordinates.
+LEGACY_FIELD_COUNT = len(FIELD_DIAGNOSTIC_FIELDS)
+FIELD_DIAGNOSTIC_FIELDS += [
+    "flow_coordinate_valid", "flow_coordinate_status", "flow_field_version",
+    "flow_anchor_x", "flow_anchor_y", "flow_anchor_z",
+    "flow_query_x", "flow_query_y", "flow_query_z",
+    "flow_eta_0", "flow_eta_1", "flow_eta_norm", "flow_section_residual",
+    "flow_return_arc", "flow_return_steps", "flow_gradient_relative_error",
+    "flow_compute_ms"
+]
+FIELD_DIAGNOSTIC_FIELDS += [
+    "flow_control_valid", "flow_control_status", "flow_j_sigma_min", "flow_j_condition",
+    "flow_j_fd_difference", "flow_Ju_residual", "flow_JJdag_residual", "flow_decay_residual",
+    "flow_nominal_vx", "flow_nominal_vy", "flow_nominal_vz",
+    "flow_final_vx", "flow_final_vy", "flow_final_vz",
+    "flow_delta_vx", "flow_delta_vy", "flow_delta_vz", "flow_control_compute_ms"
+]
 REANCHOR_FIELDS = ["time", "count", "x", "y", "z", "heading"]
 
 
@@ -172,12 +189,18 @@ class TrajectoryRecorder:
             self.event_file.flush()
 
     def _field_callback(self, msg):
-        if len(msg.data) < len(FIELD_DIAGNOSTIC_FIELDS):
+        if len(msg.data) < LEGACY_FIELD_COUNT:
             return
         with self.lock:
             if self.closed:
                 return
-            self.field_writer.writerow([self._value(value) for value in msg.data[:len(FIELD_DIAGNOSTIC_FIELDS)]])
+            values = list(msg.data[:len(FIELD_DIAGNOSTIC_FIELDS)])
+            values += [float("nan")] * (len(FIELD_DIAGNOSTIC_FIELDS) - len(values))
+            self.field_writer.writerow([
+                self._value(value) if index < LEGACY_FIELD_COUNT else
+                (format(float(value), ".12g") if math.isfinite(value) else "")
+                for index, value in enumerate(values)
+            ])
             self.field_file.flush()
 
     def _reanchor_callback(self, msg):

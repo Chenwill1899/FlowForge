@@ -80,6 +80,7 @@ class gvf_manager
         ros::Subscriber human_intent_sub_;
         ros::Subscriber odom_sub;
         ros::Publisher  field_diagnostics_pub_;
+        Eigen::Vector3d flow_final_velocity_ = Eigen::Vector3d::Zero();
         ros::Publisher  reanchor_event_pub_;
         int reanchor_count_ = 0;
 

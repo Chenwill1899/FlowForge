@@ -130,6 +130,10 @@ void FluidGuidance::reset()
     fluid3d_cached_clearance_grad_.setZero();
     fluid3d_cached_clearance_ = 0.0;
     fluid3d_cached_clearance_grad_valid_ = false;
+    flow_coordinates_ = fluid3d::FlowCoordinates3D{};
+    flow_coordinate_grid_.reset();
+    flow_error_diag_ = FlowErrorDiagnostics3D{};
+    flow_field_version_ = 0;
     fluid3d_cross_latched_ = false;
     fluid3d_cross_beta_ = 0.0;
     fluid3d_stall_accum_ = 0.0;
@@ -953,6 +957,32 @@ Eigen::Vector3d FluidGuidance::calcGuidance3D(const Eigen::Vector3d& pos,
             fluid3d_field_data_valid_ = true;
             fluid3d_field_solve_speed_ = v_cap;
             updateStreamline3D(pos, fine.g, v_cap);
+            // Freeze the existing numerical field and the selected seed for
+            // section-return coordinates. No change to the coarse/fine solve.
+            auto snapshot = std::make_shared<fluid3d::CoordinateGrid3D>();
+            snapshot->grid = fine.g;
+            snapshot->p = fine.field.phi;
+            snapshot->ux = fine.field.Ux;
+            snapshot->uy = fine.field.Uy;
+            snapshot->uz = fine.field.Uz;
+            snapshot->solid = fine.solid;
+            snapshot->far_velocity = Eigen::Vector3d(
+                v_cap * e_J.x() + ustar_lat * n_J.x(),
+                v_cap * e_J.y() + ustar_lat * n_J.y(), 0.0);
+            snapshot->speed_scale = v_cap;
+            flow_coordinate_grid_ = snapshot;
+            ++flow_field_version_;
+            flow_coordinates_ = fluid3d::FlowCoordinates3D{};
+            if (streamline_view_.valid) {
+                const auto seed = std::min_element(streamline_view_.arc.begin(),
+                    streamline_view_.arc.end(), [](double a, double b) {
+                        return std::abs(a) < std::abs(b);
+                    });
+                const std::size_t index = std::distance(streamline_view_.arc.begin(), seed);
+                flow_coordinates_.reset([snapshot](const Eigen::Vector3d& x) {
+                    return snapshot->sample(x);
+                }, streamline_view_.points[index]);
+            }
         }
 
         fluid3d_coarse_extents_.clear();
@@ -1066,17 +1096,33 @@ Eigen::Vector3d FluidGuidance::calcGuidance3D(const Eigen::Vector3d& pos,
         fluid3d_cached_t_field_valid_ = true;
     }
 
+    const auto coordinate_started = std::chrono::steady_clock::now();
+    flow_error_diag_ = FlowErrorDiagnostics3D{};
+    flow_error_diag_.query = pos;
+    flow_error_diag_.field_version = flow_field_version_;
+    if (flow_coordinate_grid_) {
+        if (flow_coordinates_.status() != fluid3d::CoordinateStatus3D::kNoField)
+            flow_error_diag_.anchor = flow_coordinates_.anchor();
+        flow_error_diag_.coordinate = flow_coordinates_.evaluate(pos);
+        const auto sample = flow_coordinate_grid_->sample(pos);
+        if (sample.status == fluid3d::CoordinateStatus3D::kOk)
+            flow_error_diag_.gradient_relative_error =
+                (sample.velocity - sample.potential_gradient).norm() /
+                std::max(1e-12, sample.velocity.norm());
+    }
+    flow_error_diag_.compute_ms = wallMs(coordinate_started, std::chrono::steady_clock::now());
+
     const double phi_here = (pos_xy - anchor_xy).dot(n_J);
     const bool streamline_ok = streamline_view_.valid &&
                                fluid3d_field_data_valid_ &&
                                fluid3d_field_valid_;
     Eigen::Vector3d v_nominal = Eigen::Vector3d::Zero();
     Eigen::Vector3d u_raw;
+    v_nominal = calcStreamlineGuidance3D(pos, v_cap, D_here,
+                                       field_sample_valid ? field_uvw.z() : 0.0,
+                                       heading_rad);
+    u_raw = v_nominal;
     if (streamline_ok) {
-        v_nominal = calcStreamlineGuidance3D(pos, v_cap, D_here,
-                                             field_sample_valid ? field_uvw.z() : 0.0,
-                                             heading_rad);
-        u_raw = v_nominal;
         const double theta_cmd = std::atan2(u_raw.y(), u_raw.x());
         const double theta_target = heading_rad - std::atan(phi_here / c_.conv_length);
         double delta = theta_target - theta_cmd;
@@ -1093,9 +1139,8 @@ Eigen::Vector3d FluidGuidance::calcGuidance3D(const Eigen::Vector3d& pos,
         u_raw.y() = h_norm * std::sin(theta_final);
         fluid3d_track_mode_ = 0;
     } else {
-        u_raw = fuseLiftedGvfFluid3D(
-            field_uvw, field_sample_valid, heading_rad, phi_here, v_cap, D_here);
-        v_nominal = u_raw;
+        // A missing chart is not replaced by a different nominal controller.
+        // Existing downstream navigation/safety processing remains unchanged.
         fluid3d_track_mode_ = 2;
     }
     setDiagnosticDirection(v_nominal);
@@ -1509,23 +1554,15 @@ Eigen::Vector3d FluidGuidance::calcStreamlineGuidance3D(const Eigen::Vector3d& p
                                                         double w_robot,
                                                         double heading_rad)
 {
-    const StreamlineProj3D proj = projectToStreamline3D(pos);
-    streamline_view_.end_cap = proj.end_cap;
+    (void)w_robot;
+    (void)heading_rad;
+    const auto started = std::chrono::steady_clock::now();
     const double v_t = v_cap * std::max(c_.speed_floor,
         fluid2d::fluidSpeedRatio(D_local, c_.d_s, c_.d_drag));
-    const Eigen::Vector3d e_perp = pos - proj.p;
-    const Eigen::Vector2d t_xy(proj.t.x(), proj.t.y());
-    const double t_n = t_xy.norm();
-    Eigen::Vector2d dir;
-    if (t_n > 1e-6) {
-        dir = t_xy / t_n;
-    } else {
-        dir = Eigen::Vector2d(std::cos(heading_rad), std::sin(heading_rad));
-    }
-    return Eigen::Vector3d(
-        v_t * dir.x() - c_.k_n * e_perp.x(),
-        v_t * dir.y() - c_.k_n * e_perp.y(),
-        w_robot - (c_.k_n * c_.k_n_z_ratio) * e_perp.z());
+    flow_error_diag_.control = flow_coordinates_.nominalVelocity(
+        pos, v_t, c_.k_n * Eigen::Matrix2d::Identity());
+    flow_error_diag_.control_compute_ms = wallMs(started, std::chrono::steady_clock::now());
+    return flow_error_diag_.control.velocity;
 }
 
 }  // namespace fluid
