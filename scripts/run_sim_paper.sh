@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One closed-loop benchmark runner: 3D quadrotor or 2D differential drive.
 set -Eeuo pipefail
-readonly ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 usage() {
   cat <<EOF
@@ -27,7 +27,7 @@ if [[ "${MODE}" == 2d && ( "${SIM_PAPER_DISTURBANCE_MODE:-none}" != none || "${S
   exit 2
 fi
 
-if [[ "${FLOWFORGE_CONTAINER:-0}" != 1 ]]; then
+if [[ "${FLORE_CONTAINER:-0}" != 1 ]]; then
   exec "${ROOT}/scripts/ros1_docker.sh" exec "${ROOT}/scripts/run_sim_paper.sh" "${MODE}"
 fi
 mkdir -p "${ROOT}/logs"

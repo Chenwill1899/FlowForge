@@ -12,7 +12,7 @@ trap 'exit 130' INT
 for _ in $(seq 1 50); do
   if xdpyinfo >/dev/null 2>&1; then
     dbus-run-session -- fluxbox >"${HOME}/.vnc/fluxbox.log" 2>&1 &
-    echo "FlowForge desktop ready on container port 5901"
+    echo "FLORE desktop ready on container port 5901"
     wait "${vnc_pid}"
     exit $?
   fi
